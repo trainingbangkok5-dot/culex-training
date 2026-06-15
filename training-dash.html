@@ -360,24 +360,151 @@ select option { background: var(--dark); }
 
 <!-- ======================== CHEAT SHEETS ======================== -->
 <section id="tab-cheatsheets" class="tab-panel">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+<style>
+/* ── OUTLET SELECTOR ── */
+.outlet-selector {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:22px;
+}
+@media(max-width:600px){ .outlet-selector { grid-template-columns:1fr; } }
+
+.outlet-btn {
+  background:var(--panel); border:2px solid var(--border);
+  border-radius:12px; padding:18px 14px; cursor:pointer;
+  text-align:center; transition:all .2s; position:relative; overflow:hidden;
+}
+.outlet-btn::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  opacity:0; transition:opacity .2s; border-radius:12px 12px 0 0;
+}
+.outlet-btn.lb::before  { background:linear-gradient(90deg,#c9a84c,#e2c577); }
+.outlet-btn.rd::before  { background:linear-gradient(90deg,#e05252,#e07752); }
+.outlet-btn.sb::before  { background:linear-gradient(90deg,#4c8fe0,#4ccfe0); }
+.outlet-btn:hover, .outlet-btn.active {
+  border-color:var(--gold); transform:translateY(-2px);
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+}
+.outlet-btn.active::before { opacity:1; }
+.outlet-btn.active { background:var(--panel2,#1e1e1e); }
+.ob-icon  { font-size:32px; margin-bottom:8px; }
+.ob-name  { font-size:14px; font-weight:800; color:var(--cream); margin-bottom:2px; }
+.ob-count { font-size:11px; color:var(--muted); }
+.ob-arrow { font-size:18px; color:var(--muted); margin-top:6px; transition:color .15s; }
+.outlet-btn.active .ob-arrow, .outlet-btn:hover .ob-arrow { color:var(--gold); }
+
+/* ── SHEET TABS (level 2) ── */
+.sheet-tabbar {
+  display:flex; gap:4px; margin-bottom:16px;
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:10px; padding:4px;
+}
+.sheet-tab {
+  flex:1; padding:9px 12px; border-radius:7px; border:none; cursor:pointer;
+  font-size:13px; font-weight:600; font-family:var(--font);
+  background:transparent; color:var(--muted); transition:all .15s;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.sheet-tab:hover  { color:var(--cream); background:rgba(255,255,255,.05); }
+.sheet-tab.active { background:var(--gold); color:var(--black); }
+
+/* ── BREADCRUMB ── */
+.cs-breadcrumb {
+  display:flex; align-items:center; gap:8px; margin-bottom:16px;
+  font-size:12px; color:var(--muted);
+}
+.cs-breadcrumb .crumb { cursor:pointer; transition:color .12s; }
+.cs-breadcrumb .crumb:hover { color:var(--gold); }
+.cs-breadcrumb .sep { color:var(--border); }
+.cs-breadcrumb .current { color:var(--cream); font-weight:600; }
+
+/* ── BACK TO OUTLETS ── */
+.back-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  background:none; border:1px solid var(--border); color:var(--muted);
+  border-radius:6px; padding:5px 12px; font-size:12px; cursor:pointer;
+  transition:all .12s; margin-bottom:14px;
+}
+.back-btn:hover { border-color:var(--gold); color:var(--gold); }
+</style>
+
+  <!-- TOP BAR -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
     <div class="sec-title" style="margin:0">Outlet Cheat Sheets</div>
-    <button class="btn btn-gold btn-sm" onclick="openModal('cs-modal')">+ Add Cheat Sheet</button>
+    <button class="btn btn-gold btn-sm" onclick="openModal('cs-modal')" id="cs-add-btn">+ Add Cheat Sheet</button>
   </div>
 
-  <div class="outlet-chips" id="cs-outlet-filter">
-    <div class="chip active" onclick="filterCS(this,'all')">All Outlets</div>
-    <div class="chip" onclick="filterCS(this,'AllDay')">All Day Dining</div>
-    <div class="chip" onclick="filterCS(this,'Bar')">Bar</div>
-    <div class="chip" onclick="filterCS(this,'Banquet')">Banquet</div>
-    <div class="chip" onclick="filterCS(this,'Kitchen')">Kitchen</div>
-    <div class="chip" onclick="filterCS(this,'Room')">Room Service</div>
-    <div class="chip" onclick="filterCS(this,'Pool')">Pool Bar</div>
+  <!-- LEVEL 1: OUTLET SELECTION -->
+  <div id="cs-level1">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Select an outlet to view its cheat sheets:</div>
+    <div class="outlet-selector">
+
+      <div class="outlet-btn lb" onclick="selectOutlet('Little Bangkok','🍜','lb')">
+        <div class="ob-icon">🍜</div>
+        <div class="ob-name">Little Bangkok</div>
+        <div class="ob-count" id="lb-count">— sheets</div>
+        <div class="ob-arrow">→</div>
+      </div>
+
+      <div class="outlet-btn rd" onclick="selectOutlet('The Red Door','🚪','rd')">
+        <div class="ob-icon">🚪</div>
+        <div class="ob-name">The Red Door</div>
+        <div class="ob-count" id="rd-count">— sheets</div>
+        <div class="ob-arrow">→</div>
+      </div>
+
+      <div class="outlet-btn sb" onclick="selectOutlet('Superbowl','🏆','sb')">
+        <div class="ob-icon">🏆</div>
+        <div class="ob-name">Superbowl</div>
+        <div class="ob-count" id="sb-count">— sheets</div>
+        <div class="ob-arrow">→</div>
+      </div>
+
+    </div>
+
+    <!-- Quick stats strip -->
+    <div class="grid-3" style="margin-top:4px">
+      <div class="card" style="padding:12px 16px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Total Cheat Sheets</div>
+        <div style="font-size:24px;font-weight:800;color:var(--gold)" id="cs-total-count">—</div>
+      </div>
+      <div class="card" style="padding:12px 16px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Last Added</div>
+        <div style="font-size:13px;font-weight:600;color:var(--cream)" id="cs-last-added">—</div>
+      </div>
+      <div class="card" style="padding:12px 16px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Outlets Active</div>
+        <div style="font-size:24px;font-weight:800;color:var(--gold)">3</div>
+      </div>
+    </div>
   </div>
 
-  <div id="cs-grid" class="grid-3">
-    <!-- populated by JS -->
-    <div class="card" style="text-align:center;padding:40px;color:var(--muted)">Loading cheat sheets…</div>
+  <!-- LEVEL 2: SHEET TYPE TABS (hidden until outlet selected) -->
+  <div id="cs-level2" style="display:none">
+
+    <!-- Breadcrumb + back -->
+    <button class="back-btn" onclick="backToOutlets()">← All Outlets</button>
+    <div class="cs-breadcrumb">
+      <span class="crumb" onclick="backToOutlets()">Cheat Sheets</span>
+      <span class="sep">›</span>
+      <span class="current" id="cs-outlet-breadcrumb">—</span>
+      <span class="sep">›</span>
+      <span class="current" id="cs-sheet-breadcrumb">Kitchen</span>
+    </div>
+
+    <!-- Sheet type tabs -->
+    <div class="sheet-tabbar">
+      <button class="sheet-tab active" id="st-kitchen" onclick="selectSheet('Kitchen')">
+        👨‍🍳 Kitchen Cheat Sheet
+      </button>
+      <button class="sheet-tab" id="st-bar" onclick="selectSheet('Bar')">
+        🍹 Bar Cheat Sheet
+      </button>
+    </div>
+
+    <!-- Cards grid -->
+    <div id="cs-grid" class="grid-3">
+      <div class="card" style="text-align:center;padding:40px;color:var(--muted)">Loading…</div>
+    </div>
+
   </div>
 </section>
 
@@ -434,8 +561,7 @@ select option { background: var(--dark); }
       <div class="field"><label>Filter Outlet</label>
         <select id="res-outlet-filter" onchange="renderResults()">
           <option value="all">All Outlets</option>
-          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
-          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+          <option>Little Bangkok Kitchen</option><option>Little Bangkok Bar</option><option>The Red Door</option><option>Superbowl</option>
         </select>
       </div>
     </div>
@@ -526,8 +652,7 @@ select option { background: var(--dark); }
     <div class="field"><label>Outlet</label>
       <select id="obs-outlet" onchange="renderObs()">
         <option value="all">All Outlets</option>
-        <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
-        <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+        <option>Little Bangkok Kitchen</option><option>Little Bangkok Bar</option><option>The Red Door</option><option>Superbowl</option>
       </select>
     </div>
     <button class="btn btn-gold btn-sm" onclick="openModal('obs-modal')">+ Add Observation</button>
@@ -558,57 +683,308 @@ select option { background: var(--dark); }
   </div>
 </section>
 
-<!-- ======================== AI ASSISTANT ======================== -->
+<!-- ======================== SUNNY AI ASSISTANT ======================== -->
 <section id="tab-ai" class="tab-panel">
-  <div class="sec-title">AI Training Assistant</div>
 
-  <div style="margin-bottom:12px">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Ask about any outlet's cheat sheet, SOP, or menu knowledge:</div>
-    <div class="outlet-chips" id="ai-outlet-chips">
-      <div class="chip active" onclick="setAIOutlet(this,'General')">General</div>
-      <div class="chip" onclick="setAIOutlet(this,'All Day Dining')">All Day Dining</div>
-      <div class="chip" onclick="setAIOutlet(this,'Bar')">Bar</div>
-      <div class="chip" onclick="setAIOutlet(this,'Banquet')">Banquet</div>
-      <div class="chip" onclick="setAIOutlet(this,'Kitchen')">Kitchen</div>
-      <div class="chip" onclick="setAIOutlet(this,'Room Service')">Room Service</div>
-      <div class="chip" onclick="setAIOutlet(this,'Pool Bar')">Pool Bar</div>
-    </div>
-  </div>
+  <style>
+  /* ── SUNNY STYLES ── */
+  .sunny-shell {
+    display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start;
+  }
+  @media(max-width:800px){ .sunny-shell { grid-template-columns:1fr; } }
 
-  <div class="grid-2" style="gap:16px;align-items:start">
-    <div class="ai-panel">
-      <div class="ai-header">
-        <div class="ai-status-dot"></div>
-        <div class="ai-title">Culex AI — Training Assistant</div>
-        <div class="ai-subtitle" id="ai-outlet-label">Outlet: General</div>
+  /* Sunny avatar panel */
+  .sunny-avatar-panel {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:16px; padding:28px 20px; text-align:center;
+    position:sticky; top:0;
+  }
+  .sunny-orb-wrap { position:relative; width:130px; height:130px; margin:0 auto 18px; }
+  .sunny-orb {
+    width:130px; height:130px; border-radius:50%;
+    background: radial-gradient(circle at 35% 35%, #e2c577, #c9a84c 40%, #8a6b24);
+    box-shadow: 0 0 0 0 rgba(201,168,76,0);
+    display:flex; align-items:center; justify-content:center;
+    font-size:52px; cursor:pointer; transition:transform .2s;
+    position:relative; z-index:1;
+  }
+  .sunny-orb:hover { transform:scale(1.05); }
+  .sunny-orb.listening {
+    animation: orb-pulse 1.2s ease-in-out infinite;
+    box-shadow: 0 0 0 16px rgba(201,168,76,.15), 0 0 0 32px rgba(201,168,76,.07);
+  }
+  .sunny-orb.speaking {
+    animation: orb-speak .6s ease-in-out infinite alternate;
+    box-shadow: 0 0 0 12px rgba(76,175,120,.2), 0 0 0 24px rgba(76,175,120,.08);
+  }
+  .sunny-orb.thinking {
+    animation: orb-think 1.5s linear infinite;
+  }
+  @keyframes orb-pulse {
+    0%,100%{ box-shadow:0 0 0 4px rgba(201,168,76,.3),0 0 0 12px rgba(201,168,76,.1); }
+    50%{     box-shadow:0 0 0 16px rgba(201,168,76,.2),0 0 0 32px rgba(201,168,76,.05); }
+  }
+  @keyframes orb-speak {
+    from{ transform:scale(1);   box-shadow:0 0 0 8px rgba(76,175,120,.2); }
+    to{   transform:scale(1.06);box-shadow:0 0 0 20px rgba(76,175,120,.1); }
+  }
+  @keyframes orb-think {
+    0%  { box-shadow:0 0 0 4px rgba(76,143,224,.4),0 0 0 12px rgba(76,143,224,.1); }
+    33% { box-shadow:0 0 0 12px rgba(201,168,76,.3),0 0 0 24px rgba(201,168,76,.08); }
+    66% { box-shadow:0 0 0 8px rgba(76,175,120,.3),0 0 0 18px rgba(76,175,120,.08); }
+    100%{ box-shadow:0 0 0 4px rgba(76,143,224,.4),0 0 0 12px rgba(76,143,224,.1); }
+  }
+  /* Sound wave rings */
+  .sunny-rings { position:absolute; inset:0; border-radius:50%; pointer-events:none; }
+  .sunny-rings span {
+    position:absolute; inset:0; border-radius:50%;
+    border:2px solid rgba(201,168,76,.3);
+    animation:ring-out 2s ease-out infinite;
+    opacity:0;
+  }
+  .sunny-rings span:nth-child(2){ animation-delay:.5s; }
+  .sunny-rings span:nth-child(3){ animation-delay:1s; }
+  @keyframes ring-out{ 0%{transform:scale(1);opacity:.5} 100%{transform:scale(1.8);opacity:0} }
+  .sunny-rings.active span { animation-play-state:running; }
+  .sunny-rings:not(.active) span { animation-play-state:paused; opacity:0; }
+
+  .sunny-name { font-size:22px; font-weight:800; color:var(--gold); margin-bottom:2px; }
+  .sunny-tagline { font-size:12px; color:var(--muted); margin-bottom:18px; }
+
+  .sunny-status-badge {
+    display:inline-flex; align-items:center; gap:7px;
+    background:var(--dark); border:1px solid var(--border);
+    border-radius:20px; padding:5px 14px; font-size:12px; color:var(--muted);
+    margin-bottom:18px;
+  }
+  .sunny-status-badge .sdot {
+    width:7px; height:7px; border-radius:50%; background:var(--muted);
+    transition:background .3s;
+  }
+  .sunny-status-badge .sdot.ready    { background:var(--success); box-shadow:0 0 5px var(--success); animation:pulse 2s infinite; }
+  .sunny-status-badge .sdot.listening{ background:var(--gold);    box-shadow:0 0 5px var(--gold);    animation:pulse .8s infinite; }
+  .sunny-status-badge .sdot.speaking { background:var(--success); box-shadow:0 0 8px var(--success); }
+  .sunny-status-badge .sdot.thinking { background:var(--info);    box-shadow:0 0 5px var(--info);    animation:pulse 1s infinite; }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .sunny-big-btn {
+    width:100%; padding:13px; border-radius:10px; border:none; cursor:pointer;
+    font-size:14px; font-weight:700; font-family:var(--font);
+    transition:filter .15s, transform .1s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .sunny-big-btn:hover  { filter:brightness(1.12); }
+  .sunny-big-btn:active { transform:scale(.97); }
+  .sunny-big-btn.start  { background:var(--gold); color:var(--black); margin-bottom:8px; }
+  .sunny-big-btn.stop   { background:var(--danger); color:#fff; display:none; margin-bottom:8px; }
+  .sunny-big-btn.speak  { background:transparent; border:1px solid var(--border); color:var(--muted); font-size:12px; }
+
+  .sunny-lang-row { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:14px; }
+  .lang-chip {
+    padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer;
+    border:1px solid var(--border); background:transparent; color:var(--muted);
+    transition:all .12s;
+  }
+  .lang-chip.active { border-color:var(--gold); color:var(--gold); background:rgba(201,168,76,.1); }
+
+  /* Transcript + result panel */
+  .sunny-main-panel { display:flex; flex-direction:column; gap:14px; }
+
+  /* Live transcript bubble */
+  .transcript-box {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:12px; padding:16px 18px; min-height:60px;
+    font-size:15px; color:var(--cream); line-height:1.6;
+    position:relative;
+  }
+  .transcript-box .tb-label {
+    font-size:10px; text-transform:uppercase; letter-spacing:1.5px;
+    color:var(--muted); margin-bottom:6px;
+  }
+  .transcript-box .tb-text { color:var(--cream); }
+  .transcript-box .tb-text.placeholder { color:var(--muted); font-style:italic; }
+
+  /* Sound visualiser bars */
+  .viz-bars {
+    display:flex; align-items:flex-end; gap:3px; height:28px;
+    margin-top:10px; display:none;
+  }
+  .viz-bar {
+    width:4px; background:var(--gold); border-radius:2px;
+    animation:bar-dance .6s ease-in-out infinite alternate;
+    min-height:4px;
+  }
+  .viz-bar:nth-child(2){ animation-delay:.1s; }
+  .viz-bar:nth-child(3){ animation-delay:.2s; }
+  .viz-bar:nth-child(4){ animation-delay:.15s; }
+  .viz-bar:nth-child(5){ animation-delay:.05s; }
+  .viz-bar:nth-child(6){ animation-delay:.25s; }
+  .viz-bar:nth-child(7){ animation-delay:.1s; }
+  @keyframes bar-dance{
+    from{ height:4px; } to{ height:28px; }
+  }
+  .viz-bars.active { display:flex; }
+
+  /* Result card */
+  .result-card {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:12px; overflow:hidden; display:none;
+  }
+  .result-card.show { display:block; animation:slide-in .3s ease; }
+  @keyframes slide-in{ from{transform:translateY(10px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .result-card-header {
+    background:linear-gradient(135deg,rgba(201,168,76,.12),rgba(201,168,76,.04));
+    border-bottom:1px solid var(--border); padding:14px 18px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .result-icon { font-size:28px; }
+  .result-title { font-size:17px; font-weight:800; color:var(--gold); }
+  .result-outlet { font-size:11px; color:var(--muted); margin-top:1px; }
+  .result-body { padding:18px; }
+  .result-desc {
+    font-size:14px; line-height:1.8; color:var(--cream);
+    white-space:pre-wrap; margin-bottom:14px;
+  }
+  .result-speak-bar {
+    display:flex; align-items:center; gap:10px;
+    padding-top:14px; border-top:1px solid var(--border);
+  }
+  .speak-progress { flex:1; height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .speak-progress-fill { height:100%; background:var(--success); border-radius:2px; width:0%; transition:width .3s linear; }
+
+  /* History list */
+  .history-list { display:flex; flex-direction:column; gap:8px; }
+  .hist-item {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:10px 14px; cursor:pointer;
+    display:flex; align-items:center; gap:10px; font-size:13px;
+    transition:border-color .15s;
+  }
+  .hist-item:hover { border-color:var(--gold); }
+  .hist-q { flex:1; color:var(--cream); }
+  .hist-outlet { font-size:11px; color:var(--muted); }
+
+  /* Type-to-search fallback */
+  .sunny-type-row {
+    display:flex; gap:8px;
+  }
+  .sunny-type-row input { flex:1; }
+  </style>
+
+  <!-- LAYOUT -->
+  <div class="sunny-shell">
+
+    <!-- LEFT: SUNNY AVATAR -->
+    <div class="sunny-avatar-panel">
+      <div class="sunny-orb-wrap">
+        <div class="sunny-rings" id="sunny-rings">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="sunny-orb" id="sunny-orb" onclick="sunnyToggleListen()" title="Tap to speak">☀️</div>
       </div>
-      <div class="ai-messages" id="ai-messages">
-        <div class="ai-msg bot">
-          👋 Hello! I'm your Culex Training Assistant. Select an outlet above and ask me anything — menu knowledge, SOPs, service steps, cheat sheet content, or exam preparation tips.
-          <br><br>You can also press the 🎤 microphone to ask by voice.
+
+      <div class="sunny-name">Sunny</div>
+      <div class="sunny-tagline">Your Cheat Sheet Assistant</div>
+
+      <div class="sunny-status-badge">
+        <div class="sdot ready" id="sunny-sdot"></div>
+        <span id="sunny-status-text">Ready — tap to speak</span>
+      </div>
+
+      <button class="sunny-big-btn start" id="sunny-start-btn" onclick="sunnyToggleListen()">
+        🎤 Tap &amp; Speak
+      </button>
+      <button class="sunny-big-btn stop" id="sunny-stop-btn" onclick="sunnyStopListen()">
+        ⏹ Stop Listening
+      </button>
+      <button class="sunny-big-btn speak" id="sunny-stop-speak-btn" onclick="sunnyStopSpeaking()" style="display:none">
+        🔇 Stop Speaking
+      </button>
+
+      <!-- Language selector -->
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:16px;margin-bottom:8px">Voice Language</div>
+      <div class="sunny-lang-row">
+        <div class="lang-chip active" onclick="setLang(this,'en-US')">🇺🇸 EN</div>
+        <div class="lang-chip" onclick="setLang(this,'th-TH')">🇹🇭 TH</div>
+        <div class="lang-chip" onclick="setLang(this,'zh-CN')">🇨🇳 ZH</div>
+        <div class="lang-chip" onclick="setLang(this,'ja-JP')">🇯🇵 JA</div>
+        <div class="lang-chip" onclick="setLang(this,'ko-KR')">🇰🇷 KO</div>
+        <div class="lang-chip" onclick="setLang(this,'ar-SA')">🇸🇦 AR</div>
+      </div>
+
+      <!-- Outlet filter -->
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:16px;margin-bottom:8px">Search Outlet</div>
+      <select id="sunny-outlet-filter" style="width:100%;background:var(--dark);border:1px solid var(--border);color:var(--cream);border-radius:8px;padding:7px 10px;font-size:12px">
+        <option value="all">All Outlets</option>
+        <option>Little Bangkok Kitchen</option>
+        <option>Little Bangkok Bar</option>
+        <option>The Red Door</option>
+        <option>Superbowl</option>
+      </select>
+
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.7">
+        💡 Say <strong style="color:var(--gold)">"Sunny, find Massaman Chicken"</strong><br>
+        or just the item name after tapping.<br>
+        Sunny will read the full description aloud.
+      </div>
+    </div>
+
+    <!-- RIGHT: RESULTS -->
+    <div class="sunny-main-panel">
+
+      <!-- Live transcript -->
+      <div class="transcript-box">
+        <div class="tb-label">🎙 Hearing</div>
+        <div class="tb-text placeholder" id="sunny-transcript">Tap the orb or the button to start speaking…</div>
+        <div class="viz-bars" id="sunny-viz">
+          <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+          <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+          <div class="viz-bar"></div>
         </div>
       </div>
-      <div class="ai-input-row">
-        <button class="mic-btn" id="mic-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
-        <input type="text" id="ai-input" placeholder="Ask a training question…" onkeydown="if(event.key==='Enter') sendAI()" />
-        <button class="btn btn-gold btn-sm" onclick="sendAI()">Send</button>
-      </div>
-    </div>
 
-    <div class="card" style="align-self:start">
-      <div class="sec-title">Suggested Questions</div>
-      <div style="display:flex;flex-direction:column;gap:8px" id="ai-suggestions">
-        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">What are the steps for a proper wine pour?</button>
-        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">Describe our standard guest greeting SOP</button>
-        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">What allergens should staff know for the buffet?</button>
-        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">How do we handle a guest complaint?</button>
-        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">What are the grooming standards?</button>
-        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">Explain the bar's closing checklist</button>
+      <!-- Type fallback -->
+      <div class="sunny-type-row">
+        <input type="text" id="sunny-type-input" placeholder="Or type item name here… e.g. Massaman Chicken"
+          onkeydown="if(event.key==='Enter') sunnyTypeSearch()" />
+        <button class="btn btn-gold" onclick="sunnyTypeSearch()">🔍 Search</button>
       </div>
-      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">Voice Status</div>
-        <div id="voice-status" style="font-size:12px;color:var(--muted)">Voice input: ready</div>
+
+      <!-- Result card -->
+      <div class="result-card" id="sunny-result-card">
+        <div class="result-card-header">
+          <div class="result-icon" id="res-icon">🍽️</div>
+          <div>
+            <div class="result-title" id="res-title">—</div>
+            <div class="result-outlet" id="res-outlet">—</div>
+          </div>
+        </div>
+        <div class="result-body">
+          <div class="result-desc" id="res-desc">—</div>
+          <div class="result-speak-bar">
+            <span style="font-size:12px;color:var(--muted)" id="res-speak-label">🔊 Reading aloud…</span>
+            <div class="speak-progress"><div class="speak-progress-fill" id="res-speak-fill"></div></div>
+            <button class="btn btn-outline btn-sm" onclick="sunnyStopSpeaking()">⏹</button>
+          </div>
+        </div>
       </div>
+
+      <!-- No result card -->
+      <div id="sunny-not-found" style="display:none;background:var(--panel);border:1px solid rgba(224,82,82,.3);border-radius:12px;padding:20px;text-align:center;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:8px">🤷</div>
+        <div style="font-size:14px;color:var(--cream);margin-bottom:4px">Sunny couldn't find that item</div>
+        <div id="sunny-not-found-query" style="font-size:12px"></div>
+        <div style="font-size:12px;margin-top:8px">Try a different name or add it via <strong style="color:var(--gold)">Cheat Sheets → + Add</strong></div>
+      </div>
+
+      <!-- Search history -->
+      <div>
+        <div class="sec-title">Recent Searches</div>
+        <div class="history-list" id="sunny-history">
+          <div style="color:var(--muted);font-size:12px;padding:8px">No searches yet. Try asking Sunny something!</div>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
@@ -622,12 +998,19 @@ select option { background: var(--dark); }
 <div class="modal-bg" id="cs-modal">
   <div class="modal">
     <div class="modal-header"><div class="modal-title">Add Cheat Sheet</div><button class="modal-close" onclick="closeModal('cs-modal')">✕</button></div>
-    <div class="form-row"><div class="field"><label>Title</label><input type="text" id="cs-title" placeholder="e.g. Bar Cocktail Menu" style="width:300px"/></div></div>
+    <div class="form-row"><div class="field"><label>Title</label><input type="text" id="cs-title" placeholder="e.g. Massaman Chicken" style="width:300px"/></div></div>
     <div class="form-row">
       <div class="field"><label>Outlet</label>
         <select id="cs-outlet">
-          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
-          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+          <option>Little Bangkok</option>
+          <option>The Red Door</option>
+          <option>Superbowl</option>
+        </select>
+      </div>
+      <div class="field"><label>Sheet Type</label>
+        <select id="cs-sheet-type">
+          <option>Kitchen Cheat Sheet</option>
+          <option>Bar Cheat Sheet</option>
         </select>
       </div>
       <div class="field"><label>Category</label>
@@ -639,7 +1022,7 @@ select option { background: var(--dark); }
     </div>
     <div class="form-row">
       <div class="field" style="flex:1"><label>Content / Notes</label>
-        <textarea id="cs-content" rows="5" placeholder="Paste cheat sheet content here…"></textarea>
+        <textarea id="cs-content" rows="5" placeholder="Paste cheat sheet content here — ingredients, description, allergens…"></textarea>
       </div>
     </div>
     <div class="upload-zone" onclick="document.getElementById('cs-file').click()">
@@ -669,8 +1052,7 @@ select option { background: var(--dark); }
       <div class="field"><label>Outlet</label>
         <select id="man-outlet">
           <option>All Outlets</option>
-          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
-          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+          <option>Little Bangkok Kitchen</option><option>Little Bangkok Bar</option><option>The Red Door</option><option>Superbowl</option>
         </select>
       </div>
       <div class="field"><label>Version</label><input type="text" id="man-version" style="width:80px" placeholder="v1.0"/></div>
@@ -691,12 +1073,11 @@ select option { background: var(--dark); }
   <div class="modal" style="max-width:620px">
     <div class="modal-header"><div class="modal-title">Create Exam</div><button class="modal-close" onclick="closeModal('exam-modal')">✕</button></div>
     <div class="form-row">
-      <div class="field"><label>Exam Title</label><input type="text" id="ex-title" style="width:280px" placeholder="e.g. Bar Knowledge Test"/></div>
+      <div class="field"><label>Exam Title</label><input type="text" id="ex-title" style="width:280px" placeholder="e.g. Little Bangkok Bar Knowledge Test"/></div>
       <div class="field"><label>Outlet</label>
         <select id="ex-outlet">
           <option>All Outlets</option>
-          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
-          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+          <option>Little Bangkok Kitchen</option><option>Little Bangkok Bar</option><option>The Red Door</option><option>Superbowl</option>
         </select>
       </div>
     </div>
@@ -726,8 +1107,7 @@ What does SOP stand for? | Standard Operating Procedure | Staff Operations Polic
     <div class="form-row">
       <div class="field"><label>Outlet</label>
         <select id="nj-outlet">
-          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
-          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+          <option>Little Bangkok Kitchen</option><option>Little Bangkok Bar</option><option>The Red Door</option><option>Superbowl</option>
         </select>
       </div>
       <div class="field"><label>Start Date</label><input type="date" id="nj-start"/></div>
@@ -750,8 +1130,7 @@ What does SOP stand for? | Standard Operating Procedure | Staff Operations Polic
       <div class="field"><label>Staff Name</label><input type="text" id="ob-name" style="width:200px"/></div>
       <div class="field"><label>Outlet</label>
         <select id="ob-outlet">
-          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
-          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+          <option>Little Bangkok Kitchen</option><option>Little Bangkok Bar</option><option>The Red Door</option><option>Superbowl</option>
         </select>
       </div>
       <div class="field"><label>Week of</label><input type="date" id="ob-week"/></div>
@@ -832,53 +1211,132 @@ async function cloudinaryUpload(file){
 // ===== CHEAT SHEETS ========
 // ===========================
 let allCS = {};
-let csFilter = 'all';
+let csActiveOutlet   = null; // 'Little Bangkok' | 'The Red Door' | 'Superbowl'
+let csActiveSheet    = 'Kitchen'; // 'Kitchen' | 'Bar'
 
-function filterCS(el, val){
-  document.querySelectorAll('#cs-outlet-filter .chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  csFilter = val;
+const OUTLET_ICONS = {
+  'Little Bangkok': '🍜',
+  'The Red Door':   '🚪',
+  'Superbowl':      '🏆'
+};
+
+// ── Level 1: select outlet ──
+function selectOutlet(outlet, icon, cls){
+  csActiveOutlet = outlet;
+  csActiveSheet  = 'Kitchen';
+
+  // Update breadcrumb
+  document.getElementById('cs-outlet-breadcrumb').textContent = outlet;
+  document.getElementById('cs-sheet-breadcrumb').textContent  = 'Kitchen Cheat Sheet';
+
+  // Pre-fill modal outlet
+  document.getElementById('cs-outlet').value = outlet;
+
+  // Switch views
+  document.getElementById('cs-level1').style.display = 'none';
+  document.getElementById('cs-level2').style.display = 'block';
+
+  // Activate first sheet tab
+  selectSheet('Kitchen');
+}
+
+function backToOutlets(){
+  csActiveOutlet = null;
+  document.getElementById('cs-level1').style.display = 'block';
+  document.getElementById('cs-level2').style.display = 'none';
+  updateOutletCounts();
+}
+
+// ── Level 2: select sheet type ──
+function selectSheet(type){
+  csActiveSheet = type;
+
+  // Update tab active state
+  document.getElementById('st-kitchen').className = 'sheet-tab' + (type==='Kitchen' ? ' active' : '');
+  document.getElementById('st-bar').className      = 'sheet-tab' + (type==='Bar'     ? ' active' : '');
+
+  // Update breadcrumb
+  document.getElementById('cs-sheet-breadcrumb').textContent = type + ' Cheat Sheet';
+
+  // Pre-fill modal sheet type
+  document.getElementById('cs-sheet-type').value = type + ' Cheat Sheet';
+
   renderCS();
 }
 
+// ── Render cards ──
 function renderCS(){
   const grid = document.getElementById('cs-grid');
+  if(!csActiveOutlet){ return; }
+
   const items = Object.entries(allCS).filter(([k,v]) =>
-    csFilter === 'all' || (v.outlet || '').includes(csFilter)
+    v.outlet === csActiveOutlet && (v.sheetType||'Kitchen Cheat Sheet').includes(csActiveSheet)
   );
+
   if(!items.length){
-    grid.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--muted)">No cheat sheets yet. Click + Add to create one.</div>';
+    grid.innerHTML = `
+      <div class="card" style="text-align:center;padding:40px;color:var(--muted);grid-column:1/-1">
+        <div style="font-size:32px;margin-bottom:10px">${OUTLET_ICONS[csActiveOutlet]}</div>
+        <div style="font-size:14px;margin-bottom:6px;color:var(--cream)">No ${csActiveSheet} cheat sheets yet</div>
+        <div style="font-size:12px;margin-bottom:16px">for ${csActiveOutlet}</div>
+        <button class="btn btn-gold btn-sm" onclick="openModal('cs-modal')">+ Add First Sheet</button>
+      </div>`;
     return;
   }
+
   grid.innerHTML = items.map(([k,v]) => `
-    <div class="card" style="position:relative">
+    <div class="card" style="position:relative;border-top:3px solid var(--gold)">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
-        <span class="badge badge-gold">${v.outlet || 'General'}</span>
-        <button class="btn btn-sm" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px" onclick="deleteCS('${k}')">🗑</button>
+        <span class="badge badge-gold">${v.category||'General'}</span>
+        <button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px" onclick="deleteCS('${k}')">🗑</button>
       </div>
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px">${v.title || 'Untitled'}</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${v.category || ''}</div>
-      <div style="font-size:12px;color:var(--cream);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow:hidden">${(v.content||'').slice(0,300)}</div>
-      ${v.fileUrl ? `<a href="${v.fileUrl}" target="_blank" class="btn btn-outline btn-sm" style="margin-top:10px">📎 View Attachment</a>` : ''}
-      <div style="font-size:10px;color:var(--muted);margin-top:8px">${v.createdAt || ''}</div>
+      <div style="font-weight:800;font-size:15px;margin-bottom:6px;color:var(--cream)">${v.title||'Untitled'}</div>
+      <div style="font-size:12px;color:var(--gold);margin-bottom:10px;font-weight:600">${v.sheetType||'Kitchen Cheat Sheet'}</div>
+      <div style="font-size:13px;color:var(--cream);line-height:1.7;white-space:pre-wrap;max-height:140px;overflow:hidden">${(v.content||'').slice(0,320)}</div>
+      ${v.fileUrl ? `<a href="${v.fileUrl}" target="_blank" class="btn btn-outline btn-sm" style="margin-top:12px;display:inline-flex">📎 View Attachment</a>` : ''}
+      <div style="font-size:10px;color:var(--muted);margin-top:10px">${v.createdAt||''}</div>
     </div>
   `).join('');
 }
 
+// ── Update outlet card counts ──
+function updateOutletCounts(){
+  const outlets = ['Little Bangkok','The Red Door','Superbowl'];
+  const ids     = ['lb-count','rd-count','sb-count'];
+  outlets.forEach((o,i) => {
+    const n = Object.values(allCS).filter(v => v.outlet===o).length;
+    const el = document.getElementById(ids[i]);
+    if(el) el.textContent = n + ' sheet' + (n!==1?'s':'');
+  });
+  const total = Object.keys(allCS).length;
+  const el = document.getElementById('cs-total-count');
+  if(el) el.textContent = total;
+  const last = Object.values(allCS).slice(-1)[0];
+  const lastEl = document.getElementById('cs-last-added');
+  if(lastEl) lastEl.textContent = last ? last.title : '—';
+}
+
+// ── Save ──
 async function saveCheatSheet(){
-  const title   = document.getElementById('cs-title').value.trim();
-  const outlet  = document.getElementById('cs-outlet').value;
-  const category= document.getElementById('cs-category').value;
-  const content = document.getElementById('cs-content').value.trim();
-  const file    = document.getElementById('cs-file').files[0];
+  const title     = document.getElementById('cs-title').value.trim();
+  const outlet    = document.getElementById('cs-outlet').value;
+  const sheetType = document.getElementById('cs-sheet-type').value;
+  const category  = document.getElementById('cs-category').value;
+  const content   = document.getElementById('cs-content').value.trim();
+  const file      = document.getElementById('cs-file').files[0];
   if(!title){ toast('Title is required','error'); return; }
   let fileUrl = null;
-  if(file){ toast('Uploading file…',''); fileUrl = await cloudinaryUpload(file); }
-  await fbPush('training/cheatsheets', { title, outlet, category, content, fileUrl, createdAt: new Date().toLocaleDateString('en-GB') });
+  if(file){ toast('Uploading file…'); fileUrl = await cloudinaryUpload(file); }
+  await fbPush('training/cheatsheets', {
+    title, outlet, sheetType, category, content, fileUrl,
+    createdAt: new Date().toLocaleDateString('en-GB')
+  });
   closeModal('cs-modal');
-  toast('Cheat sheet saved!', 'success');
-  document.getElementById('cs-title').value = '';
+  toast('Cheat sheet saved!','success');
+  document.getElementById('cs-title').value   = '';
   document.getElementById('cs-content').value = '';
+  // If we're inside an outlet view, refresh
+  if(csActiveOutlet) renderCS();
 }
 
 function deleteCS(k){
@@ -1182,98 +1640,295 @@ function buildObsChart(){
 }
 
 // ===========================
-// ===== AI ASSISTANT ========
+// ===== SUNNY AI ENGINE =====
 // ===========================
-let aiOutlet = 'General';
-let recognition = null;
-let isListening = false;
+let sunnyLang        = 'en-US';
+let sunnyRecognition = null;
+let sunnyListening   = false;
+let sunnySpeaking    = false;
+let sunnyHistory     = [];
+let sunnyUtterance   = null;
+let speakTimer       = null;
 
-function setAIOutlet(el, outlet){
-  document.querySelectorAll('#ai-outlet-chips .chip').forEach(c => c.classList.remove('active'));
+// ── State machine ──
+function sunnySetState(state){
+  // states: idle | listening | thinking | speaking
+  const orb    = document.getElementById('sunny-orb');
+  const rings  = document.getElementById('sunny-rings');
+  const dot    = document.getElementById('sunny-sdot');
+  const status = document.getElementById('sunny-status-text');
+  const startB = document.getElementById('sunny-start-btn');
+  const stopB  = document.getElementById('sunny-stop-btn');
+  const speakB = document.getElementById('sunny-stop-speak-btn');
+  const viz    = document.getElementById('sunny-viz');
+
+  orb.className = 'sunny-orb';
+  rings.className = 'sunny-rings';
+  dot.className = 'sdot';
+  viz.className = 'viz-bars';
+
+  if(state === 'idle'){
+    dot.classList.add('ready');
+    status.textContent = 'Ready — tap to speak';
+    startB.style.display = ''; stopB.style.display = 'none'; speakB.style.display = 'none';
+  } else if(state === 'listening'){
+    orb.classList.add('listening');
+    rings.classList.add('active');
+    dot.classList.add('listening');
+    status.textContent = '🎤 Listening…';
+    viz.classList.add('active');
+    startB.style.display = 'none'; stopB.style.display = ''; speakB.style.display = 'none';
+  } else if(state === 'thinking'){
+    orb.classList.add('thinking');
+    dot.classList.add('thinking');
+    status.textContent = '🔍 Searching cheat sheets…';
+    startB.style.display = 'none'; stopB.style.display = 'none'; speakB.style.display = 'none';
+  } else if(state === 'speaking'){
+    orb.classList.add('speaking');
+    dot.classList.add('speaking');
+    status.textContent = '🔊 Speaking…';
+    startB.style.display = 'none'; stopB.style.display = 'none'; speakB.style.display = '';
+  }
+}
+
+// ── Language select ──
+function setLang(el, lang){
+  document.querySelectorAll('.lang-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  aiOutlet = outlet;
-  document.getElementById('ai-outlet-label').textContent = 'Outlet: ' + outlet;
+  sunnyLang = lang;
 }
 
-function askSuggested(btn){ document.getElementById('ai-input').value = btn.textContent; sendAI(); }
-
-async function sendAI(){
-  const inp = document.getElementById('ai-input');
-  const q   = inp.value.trim();
-  if(!q) return;
-  inp.value = '';
-  appendMsg('user', q);
-  const typing = appendMsg('bot', '…');
-
-  try {
-    const systemPrompt = `You are a hotel training assistant for Culex Hospitality Group. 
-You help staff learn SOPs, menus, service steps, and brand standards.
-Current outlet context: ${aiOutlet}.
-Be concise, practical, and supportive. Use bullet points where helpful.
-If asked about specific menus or SOPs for the outlet, provide example best-practice content if no real data is provided.
-Always end responses with a follow-up question or tip to reinforce learning.`;
-
-    const res  = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        system: systemPrompt,
-        messages:[{ role:'user', content:q }]
-      })
-    });
-    const data = await res.json();
-    const text = (data.content||[]).map(b => b.text||'').join('');
-    typing.textContent = text || 'Sorry, I could not get a response. Please try again.';
-  } catch(e) {
-    typing.textContent = '⚠️ Connection error. Please check your network and try again.';
-  }
-
-  const msgs = document.getElementById('ai-messages');
-  msgs.scrollTop = msgs.scrollHeight;
-}
-
-function appendMsg(role, text){
-  const msgs = document.getElementById('ai-messages');
-  const div  = document.createElement('div');
-  div.className = 'ai-msg ' + role;
-  div.textContent = text;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
-  return div;
-}
-
-function toggleVoice(){
+// ── Start / stop listening ──
+function sunnyToggleListen(){
+  if(sunnyListening){ sunnyStopListen(); return; }
   if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
-    toast('Voice not supported in this browser','error'); return;
+    toast('Voice not supported in this browser. Use Chrome.','error'); return;
   }
-  if(isListening){ recognition.stop(); return; }
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.lang = 'en-US';
-  recognition.interimResults = false;
-  recognition.onstart = () => {
-    isListening = true;
-    document.getElementById('mic-btn').classList.add('listening');
-    document.getElementById('voice-status').textContent = '🎤 Listening…';
+  sunnyStopSpeaking();
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  sunnyRecognition = new SR();
+  sunnyRecognition.lang = sunnyLang;
+  sunnyRecognition.continuous      = false;
+  sunnyRecognition.interimResults  = true;
+
+  sunnyRecognition.onstart = () => {
+    sunnyListening = true;
+    sunnySetState('listening');
+    setTranscript('', false);
   };
-  recognition.onresult = e => {
-    document.getElementById('ai-input').value = e.results[0][0].transcript;
-    sendAI();
+
+  sunnyRecognition.onresult = e => {
+    let interim = '', final = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      if(e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    setTranscript(final || interim, !!final);
+    if(final) sunnySearch(final.trim());
   };
-  recognition.onend = () => {
-    isListening = false;
-    document.getElementById('mic-btn').classList.remove('listening');
-    document.getElementById('voice-status').textContent = 'Voice input: ready';
+
+  sunnyRecognition.onerror = e => {
+    sunnyListening = false;
+    sunnySetState('idle');
+    if(e.error !== 'no-speech') toast('Voice error: ' + e.error,'error');
   };
-  recognition.onerror = e => {
-    isListening = false;
-    document.getElementById('mic-btn').classList.remove('listening');
-    document.getElementById('voice-status').textContent = 'Error: ' + e.error;
+
+  sunnyRecognition.onend = () => {
+    sunnyListening = false;
+    if(!sunnySpeaking) sunnySetState('idle');
   };
-  recognition.start();
+
+  sunnyRecognition.start();
 }
+
+function sunnyStopListen(){
+  if(sunnyRecognition){ try{ sunnyRecognition.stop(); }catch(e){} }
+  sunnyListening = false;
+  sunnySetState('idle');
+}
+
+// ── Transcript display ──
+function setTranscript(text, isFinal){
+  const el = document.getElementById('sunny-transcript');
+  if(!text){
+    el.className = 'tb-text placeholder';
+    el.textContent = 'Listening… say an item name';
+  } else {
+    el.className = 'tb-text' + (isFinal ? '' : ' placeholder');
+    el.textContent = text;
+  }
+}
+
+// ── Type-to-search ──
+function sunnyTypeSearch(){
+  const q = document.getElementById('sunny-type-input').value.trim();
+  if(!q) return;
+  setTranscript(q, true);
+  sunnySearch(q);
+  document.getElementById('sunny-type-input').value = '';
+}
+
+// ── Core search ──
+function sunnySearch(rawQuery){
+  sunnySetState('thinking');
+  document.getElementById('sunny-result-card').classList.remove('show');
+  document.getElementById('sunny-not-found').style.display = 'none';
+
+  // Strip wake words: "sunny", "find", "search", "can you find", etc.
+  const clean = rawQuery
+    .replace(/^(sunny[,.]?\s*)?(can\s+you\s+)?(find|search|look\s+up|tell\s+me\s+about|what\s+is)\s*/i, '')
+    .trim().toLowerCase();
+
+  const outlet = document.getElementById('sunny-outlet-filter').value;
+
+  // Search all cheat sheets using new outlet+sheetType structure
+  const candidates = Object.values(allCS).filter(cs => {
+    if(outlet !== 'all' && cs.outlet !== outlet) return false;
+    const haystack = ((cs.title||'') + ' ' + (cs.content||'') + ' ' + (cs.sheetType||'')).toLowerCase();
+    return clean.split(/\s+/).every(word => word.length < 2 || haystack.includes(word));
+  });
+
+  // Also search individual menu items inside cheat sheet content
+  let result = null;
+  if(candidates.length){
+    // Prefer a cheat sheet whose TITLE matches closely
+    result = candidates.sort((a,b) => {
+      const sa = similarity(clean, (a.title||'').toLowerCase());
+      const sb = similarity(clean, (b.title||'').toLowerCase());
+      return sb - sa;
+    })[0];
+  }
+
+  setTimeout(() => {
+    if(result){
+      showSunnyResult(result, rawQuery);
+    } else {
+      sunnyNotFound(rawQuery, clean);
+    }
+  }, 400);
+}
+
+// ── Simple fuzzy similarity (Dice coefficient) ──
+function similarity(a, b){
+  if(!a || !b) return 0;
+  const sa = new Set(a.split(/\s+/)), sb = new Set(b.split(/\s+/));
+  let inter = 0;
+  sa.forEach(w => { if(sb.has(w)) inter++; });
+  return (2 * inter) / (sa.size + sb.size);
+}
+
+// ── Show result ──
+function showSunnyResult(cs, query){
+  const icons = {'Menu Knowledge':'🍽️','Recipe':'🧑‍🍳','SOP':'📋','Service Steps':'🤝','Safety':'⚠️','Other':'📄'};
+  document.getElementById('res-icon').textContent  = icons[cs.category] || '🍽️';
+  document.getElementById('res-title').textContent  = cs.title || 'Item';
+  document.getElementById('res-outlet').textContent = (cs.outlet||'') + (cs.sheetType ? ' · ' + cs.sheetType : '');
+  document.getElementById('res-desc').textContent   = cs.content || 'No description available.';
+  document.getElementById('sunny-result-card').classList.add('show');
+  document.getElementById('sunny-not-found').style.display = 'none';
+
+  // Add to history
+  addHistory(query, cs.outlet||'');
+
+  // Speak it
+  const speakText = `${cs.title}. ${cs.content || ''}`;
+  sunnySay(speakText);
+}
+
+// ── Not found ──
+function sunnyNotFound(rawQuery, clean){
+  document.getElementById('sunny-result-card').classList.remove('show');
+  document.getElementById('sunny-not-found').style.display = 'block';
+  document.getElementById('sunny-not-found-query').textContent = `"${rawQuery}"`;
+  addHistory(rawQuery, '—');
+  sunnySetState('idle');
+
+  // Speak the not-found message
+  const lang = sunnyLang;
+  let msg = `Sorry, I couldn't find "${clean}" in the cheat sheets.`;
+  if(lang === 'th-TH') msg = `ขอโทษนะคะ ฉันไม่พบรายการ ${clean} ในชีทสรุป`;
+  sunnySay(msg);
+}
+
+// ── Text to speech ──
+function sunnySay(text){
+  sunnyStopSpeaking();
+  if(!('speechSynthesis' in window)) return;
+  sunnySetState('speaking');
+  sunnySpeaking = true;
+
+  sunnyUtterance = new SpeechSynthesisUtterance(text);
+  sunnyUtterance.lang = sunnyLang;
+  sunnyUtterance.rate = 0.92;
+  sunnyUtterance.pitch = 1.05;
+  sunnyUtterance.volume = 1;
+
+  // Animate progress bar
+  const fill = document.getElementById('res-speak-fill');
+  const label = document.getElementById('res-speak-label');
+  label.textContent = '🔊 Sunny is speaking…';
+  fill.style.width = '0%';
+  const estDuration = Math.max(3000, text.length * 55);
+  const startTime = Date.now();
+  speakTimer = setInterval(() => {
+    const pct = Math.min(95, ((Date.now()-startTime)/estDuration)*100);
+    fill.style.width = pct + '%';
+  }, 100);
+
+  sunnyUtterance.onend = () => {
+    sunnySpeaking = false;
+    clearInterval(speakTimer);
+    fill.style.width = '100%';
+    label.textContent = '✅ Done';
+    setTimeout(() => { fill.style.width = '0%'; label.textContent = '🔊 Tap to replay'; }, 1500);
+    sunnySetState('idle');
+  };
+
+  sunnyUtterance.onerror = () => {
+    sunnySpeaking = false;
+    clearInterval(speakTimer);
+    sunnySetState('idle');
+  };
+
+  window.speechSynthesis.speak(sunnyUtterance);
+}
+
+function sunnyStopSpeaking(){
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  clearInterval(speakTimer);
+  sunnySpeaking = false;
+  const fill  = document.getElementById('res-speak-fill');
+  const label = document.getElementById('res-speak-label');
+  if(fill)  fill.style.width = '0%';
+  if(label) label.textContent = '🔊 Tap orb to replay';
+  if(!sunnyListening) sunnySetState('idle');
+}
+
+// ── History ──
+function addHistory(query, outlet){
+  sunnyHistory.unshift({ query, outlet, time: new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) });
+  if(sunnyHistory.length > 8) sunnyHistory.pop();
+  renderHistory();
+}
+
+function renderHistory(){
+  const el = document.getElementById('sunny-history');
+  if(!sunnyHistory.length){
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">No searches yet.</div>';
+    return;
+  }
+  el.innerHTML = sunnyHistory.map(h => `
+    <div class="hist-item" onclick="sunnySearch('${h.query.replace(/'/g,"\\'")}')">
+      <span style="font-size:16px">🔁</span>
+      <span class="hist-q">${h.query}</span>
+      <span class="hist-outlet">${h.outlet}</span>
+      <span style="font-size:10px;color:var(--muted)">${h.time}</span>
+    </div>
+  `).join('');
+}
+
+// Init Sunny
+sunnySetState('idle');
 
 // ===========================
 // ===== OVERVIEW STATS ======
@@ -1315,7 +1970,7 @@ function updateOverview(){
 // ===== FIREBASE INIT =======
 // ===========================
 function initFirebase(){
-  fbListen('training/cheatsheets', d => { allCS = d; renderCS(); });
+  fbListen('training/cheatsheets', d => { allCS = d; if(csActiveOutlet) renderCS(); updateOutletCounts(); });
   fbListen('training/manuals',     d => { allManuals = d; renderManuals(); });
   fbListen('training/exams',       d => { allExams = d; renderExamCards(); });
   fbListen('training/results',     d => { allResults = d; renderResults(); updateOverview(); });
