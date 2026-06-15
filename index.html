@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Culex — Command Centre</title>
+
+<!-- ===== FIREBASE: OPS (kitchen-tracker-35293) ===== -->
+<script type="module">
+  import { initializeApp }                    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, onValue }        from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  /* ── OPS DB ── */
+  const opsApp = initializeApp({
+    databaseURL: "https://kitchen-tracker-35293-default-rtdb.firebaseio.com"
+  }, "ops");
+  const opsDB = getDatabase(opsApp);
+
+  /* ── TRAINING DB ── replace URL when new Firebase project is created ── */
+  const trainingApp = initializeApp({
+    databaseURL: "https://kitchen-tracker-35293-default-rtdb.firebaseio.com"
+    /* TODO: replace above with: "https://culex-training-bkk-default-rtdb.firebaseio.com" */
+  }, "training");
+  const trainingDB = getDatabase(trainingApp);
+
+  function listen(db, path, cb){
+    onValue(ref(db, path), snap => cb(snap.val() || {}));
+  }
+
+  /* ── OPS listeners ── */
+  listen(opsDB, 'maintenance', data => {
+    const items  = Object.values(data);
+    const open   = items.filter(i => i.status !== 'Completed').length;
+    const urgent = items.filter(i => i.priority === 'Urgent' && i.status !== 'Completed').length;
+    setText('ops-open',   open);
+    setText('ops-urgent', urgent);
+    setStatus('ops-status', items.length > 0);
+    updateOpsActivity(items);
+  });
+
+  listen(opsDB, 'checklists', data => {
+    const items = Object.values(data);
+    const done  = items.filter(i => i.completed).length;
+    const pct   = items.length ? Math.round(done / items.length * 100) : 0;
+    setText('ops-checklist', pct + '%');
+    setBar('ops-checklist-bar', pct);
+  });
+
+  listen(opsDB, 'incidents', data => {
+    const count = Object.keys(data).length;
+    setText('ops-incidents', count);
+  });
+
+  /* ── TRAINING listeners ── */
+  listen(trainingDB, 'training/results', data => {
+    const items  = Object.values(data);
+    const passed = items.filter(r => r.pass).length;
+    const avg    = items.length ? Math.round(items.reduce((s,r)=>s+(+r.score),0)/items.length) : 0;
+    setText('tr-exams',  passed);
+    setText('tr-avg',    avg ? avg + '%' : '—');
+    setBar('tr-avg-bar', avg);
+    updateTrainingActivity(items);
+    setStatus('tr-status', true);
+  });
+
+  listen(trainingDB, 'training/joiners', data => {
+    const items   = Object.values(data);
+    const active  = items.filter(j => (j.progress||0) < 100).length;
+    setText('tr-joiners', active);
+  });
+
+  listen(trainingDB, 'training/observations', data => {
+    const items = Object.values(data);
+    const avg   = items.length
+      ? (items.reduce((s,o) => s + ((+o.s1+(+o.s2)+(+o.s3)+(+o.s4))/4), 0) / items.length).toFixed(1)
+      : '—';
+    setText('tr-obs', avg !== '—' ? avg + '/5' : '—');
+  });
+
+  listen(trainingDB, 'training/cheatsheets', data => {
+    setText('tr-sheets', Object.keys(data).length);
+  });
+
+  listen(trainingDB, 'training/manuals', data => {
+    setText('tr-manuals', Object.keys(data).length);
+  });
+
+  /* ── helpers ── */
+  function setText(id, val){ const el=document.getElementById(id); if(el) el.textContent=val; }
+  function setBar(id, pct){ const el=document.getElementById(id); if(el) el.style.width=Math.min(100,pct)+'%'; }
+  function setStatus(id, ok){
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.className = 'db-dot ' + (ok ? 'green' : 'red');
+    el.title = ok ? 'Connected' : 'No data';
+  }
+
+  function updateOpsActivity(items){
+    const feed = document.getElementById('ops-feed');
+    if(!feed) return;
+    const recent = [...items].sort((a,b)=> (b.createdAt||'') > (a.createdAt||'') ? 1 : -1).slice(0,5);
+    feed.innerHTML = recent.length
+      ? recent.map(i=>`
+          <div class="feed-row">
+            <span class="feed-dot" style="background:${i.priority==='Urgent'?'var(--danger)':i.status==='Completed'?'var(--success)':'var(--warn)'}"></span>
+            <span class="feed-text">${i.title||i.item||'Issue'}</span>
+            <span class="feed-meta">${i.location||''}</span>
+            <span class="badge ${i.status==='Completed'?'badge-green':i.priority==='Urgent'?'badge-red':'badge-warn'}">${i.status||'Open'}</span>
+          </div>`).join('')
+      : '<div style="color:var(--muted);font-size:12px;padding:12px">No maintenance items.</div>';
+  }
+
+  function updateTrainingActivity(items){
+    const feed = document.getElementById('tr-feed');
+    if(!feed) return;
+    const recent = [...items].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,5);
+    feed.innerHTML = recent.length
+      ? recent.map(r=>`
+          <div class="feed-row">
+            <span class="feed-dot" style="background:${r.pass?'var(--success)':'var(--danger)'}"></span>
+            <span class="feed-text">${r.name||'Staff'} — ${r.exam||'Exam'}</span>
+            <span class="feed-meta">${r.outlet||''}</span>
+            <span class="badge ${r.pass?'badge-green':'badge-red'}">${r.score}%</span>
+          </div>`).join('')
+      : '<div style="color:var(--muted);font-size:12px;padding:12px">No exam results yet.</div>';
+  }
+
+  window._masterReady = true;
+  document.dispatchEvent(new Event('masterReady'));
+</script>
+
+<style>
+/* ===== TOKENS ===== */
+:root {
+  --black:   #0d0d0d;
+  --dark:    #111111;
+  --panel:   #181818;
+  --panel2:  #1e1e1e;
+  --border:  #272727;
+  --gold:    #c9a84c;
+  --gold-lt: #e2c577;
+  --gold-dk: #8a6b24;
+  --cream:   #f5f0e8;
+  --muted:   #777777;
+  --danger:  #e05252;
+  --success: #4caf78;
+  --warn:    #e0a84c;
+  --info:    #4c8fe0;
+  --radius:  10px;
+  --font:    'Segoe UI', system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+html, body { height:100%; background:var(--black); color:var(--cream); font-family:var(--font); font-size:14px; overflow:hidden; }
+
+/* ===== SHELL ===== */
+.shell { display:grid; grid-template-rows:64px 1fr; height:100vh; }
+
+/* ===== TOPBAR ===== */
+.topbar {
+  background: var(--dark);
+  border-bottom: 1px solid var(--border);
+  display:flex; align-items:center; gap:18px; padding:0 24px;
+  position:relative; z-index:10;
+}
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-mark {
+  width:38px; height:38px; border-radius:8px;
+  background: linear-gradient(135deg, #c9a84c22, #c9a84c44);
+  border:1px solid var(--gold-dk);
+  display:flex; align-items:center; justify-content:center; font-size:18px;
+}
+.logo-text { line-height:1; }
+.logo-name { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:.5px; }
+.logo-sub  { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:2px; margin-top:2px; }
+.spacer { flex:1; }
+.top-pills { display:flex; gap:10px; align-items:center; }
+.pill {
+  display:flex; align-items:center; gap:7px;
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:20px; padding:5px 14px; font-size:12px; color:var(--muted);
+}
+.pill strong { color:var(--cream); font-weight:600; }
+.db-dot {
+  width:7px; height:7px; border-radius:50%; background:var(--muted);
+  transition:background .3s;
+}
+.db-dot.green { background:var(--success); box-shadow:0 0 6px var(--success); }
+.db-dot.red   { background:var(--danger);  box-shadow:0 0 6px var(--danger); }
+.db-dot.pulse { animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+#clock { font-size:13px; color:var(--gold-lt); font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+/* ===== MAIN ===== */
+.main { overflow-y:auto; padding:24px; display:flex; flex-direction:column; gap:20px; }
+
+/* ===== SECTION LABEL ===== */
+.sec-label {
+  font-size:10px; text-transform:uppercase; letter-spacing:2.5px;
+  color:var(--muted); display:flex; align-items:center; gap:10px; margin-bottom:14px;
+}
+.sec-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ===== DASHBOARD CARDS (big nav) ===== */
+.dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:700px){ .dash-grid { grid-template-columns:1fr; } }
+
+.dash-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  cursor:pointer; text-decoration:none; color:inherit;
+  transition: border-color .2s, transform .15s, box-shadow .2s;
+  display:block; position:relative; overflow:hidden;
+}
+.dash-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  border-radius:var(--radius) var(--radius) 0 0;
+  opacity:0; transition:opacity .2s;
+}
+.dash-card.ops::before   { background: linear-gradient(90deg,var(--warn),var(--danger)); }
+.dash-card.train::before { background: linear-gradient(90deg,var(--gold),var(--success)); }
+.dash-card:hover { border-color:var(--gold); transform:translateY(-2px); box-shadow:0 8px 32px rgba(0,0,0,.4); }
+.dash-card:hover::before { opacity:1; }
+
+.dc-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.dc-icon {
+  width:44px; height:44px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+  flex-shrink:0;
+}
+.dc-icon.ops   { background:rgba(224,168,76,.12); border:1px solid rgba(224,168,76,.25); }
+.dc-icon.train { background:rgba(201,168,76,.12); border:1px solid rgba(201,168,76,.25); }
+.dc-title { font-size:16px; font-weight:700; color:var(--cream); }
+.dc-url   { font-size:11px; color:var(--muted); margin-top:1px; }
+.dc-arrow { margin-left:auto; font-size:18px; color:var(--muted); transition:transform .2s, color .2s; }
+.dash-card:hover .dc-arrow { transform:translateX(4px); color:var(--gold); }
+
+.dc-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+.dc-stat { }
+.dc-stat .v { font-size:22px; font-weight:800; color:var(--gold); line-height:1; }
+.dc-stat .l { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-top:3px; }
+
+.dc-bar-wrap { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.dc-bar-label { font-size:11px; color:var(--muted); white-space:nowrap; width:120px; }
+.dc-bar { flex:1; height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
+.dc-bar-fill { height:100%; border-radius:3px; transition:width .6s; }
+.dc-bar-fill.gold  { background:var(--gold); }
+.dc-bar-fill.green { background:var(--success); }
+
+.dc-open-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 18px; border-radius:6px; font-size:13px; font-weight:600;
+  border:none; cursor:pointer; text-decoration:none; transition:filter .15s;
+}
+.dc-open-btn.ops   { background:var(--warn); color:var(--black); }
+.dc-open-btn.train { background:var(--gold); color:var(--black); }
+.dc-open-btn:hover { filter:brightness(1.12); }
+
+/* ===== ACTIVITY FEEDS ===== */
+.feeds-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:700px){ .feeds-grid { grid-template-columns:1fr; } }
+
+.feed-card {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px 18px;
+}
+.feed-card-header {
+  display:flex; align-items:center; gap:8px; margin-bottom:14px;
+}
+.feed-card-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+.feed-row {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 0; border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.feed-row:last-child { border-bottom:none; }
+.feed-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.feed-text { flex:1; color:var(--cream); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.feed-meta { color:var(--muted); font-size:11px; white-space:nowrap; margin-right:6px; }
+
+/* ===== QUICK METRICS ROW ===== */
+.metrics-row { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
+@media(max-width:900px){ .metrics-row { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:500px){ .metrics-row { grid-template-columns:repeat(2,1fr); } }
+
+.metric-card {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); padding:14px 16px;
+}
+.metric-card .mv { font-size:26px; font-weight:800; color:var(--gold); line-height:1; }
+.metric-card .ml { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-top:4px; }
+.metric-card .ms { font-size:10px; color:var(--muted); margin-top:2px; }
+.metric-card.danger .mv { color:var(--danger); }
+.metric-card.success .mv { color:var(--success); }
+
+/* ===== BADGES ===== */
+.badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; white-space:nowrap; }
+.badge-green { background:rgba(76,175,120,.15); color:var(--success); }
+.badge-red   { background:rgba(224,82,82,.15);  color:var(--danger); }
+.badge-warn  { background:rgba(224,168,76,.15); color:var(--warn); }
+.badge-gold  { background:rgba(201,168,76,.15); color:var(--gold); }
+
+/* ===== SYSTEM STATUS BAR ===== */
+.status-bar {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); padding:12px 18px;
+  display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+  font-size:12px;
+}
+.status-item { display:flex; align-items:center; gap:7px; color:var(--muted); }
+.status-item strong { color:var(--cream); }
+.status-sep { color:var(--border); }
+
+/* ===== PIN GATE ===== */
+.pin-gate {
+  position:fixed; inset:0; background:var(--black);
+  display:flex; align-items:center; justify-content:center;
+  z-index:9999; flex-direction:column; gap:20px;
+}
+.pin-gate.hidden { display:none; }
+.pin-box { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:36px 40px; text-align:center; max-width:360px; width:90%; }
+.pin-title { font-size:20px; font-weight:800; color:var(--gold); margin-bottom:4px; }
+.pin-sub { font-size:12px; color:var(--muted); margin-bottom:24px; }
+.pin-dots { display:flex; gap:12px; justify-content:center; margin-bottom:20px; }
+.pin-dot { width:14px; height:14px; border-radius:50%; border:2px solid var(--border); background:transparent; transition:background .15s; }
+.pin-dot.filled { background:var(--gold); border-color:var(--gold); }
+.pin-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.pin-key {
+  background:var(--panel2); border:1px solid var(--border);
+  border-radius:8px; padding:14px; font-size:20px; font-weight:700;
+  cursor:pointer; color:var(--cream); transition:background .12s, border-color .12s;
+  user-select:none;
+}
+.pin-key:hover { background:var(--border); border-color:var(--gold); color:var(--gold); }
+.pin-key.wide { grid-column:span 2; font-size:14px; }
+.pin-error { color:var(--danger); font-size:12px; min-height:18px; margin-top:-8px; }
+.pin-roles { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+.role-pill {
+  display:flex; align-items:center; gap:10px;
+  background:var(--panel2); border:1px solid var(--border);
+  border-radius:8px; padding:10px 14px; cursor:pointer;
+  transition:border-color .15s, background .15s; font-size:13px;
+}
+.role-pill:hover { border-color:var(--gold); background:rgba(201,168,76,.06); }
+.role-icon { font-size:20px; }
+.role-name { font-weight:600; }
+.role-desc { font-size:11px; color:var(--muted); }
+
+/* ===== TOAST ===== */
+#toast {
+  position:fixed; bottom:20px; right:20px; z-index:9998;
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:8px; padding:10px 16px; font-size:13px;
+  transform:translateY(60px); opacity:0; transition:all .25s; max-width:280px;
+}
+#toast.show { transform:translateY(0); opacity:1; }
+#toast.success { border-color:var(--success); color:var(--success); }
+#toast.error   { border-color:var(--danger);  color:var(--danger); }
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<!-- ===== PIN GATE ===== -->
+<div class="pin-gate" id="pin-gate">
+  <div class="pin-box">
+    <div class="pin-title">⬡ CULEX</div>
+    <div class="pin-sub">Command Centre — Select your role</div>
+
+    <div id="pin-role-select">
+      <div class="pin-roles">
+        <div class="role-pill" onclick="selectRole('gm')">
+          <span class="role-icon">🏨</span>
+          <div><div class="role-name">General Manager / Director</div><div class="role-desc">Full master dashboard access</div></div>
+        </div>
+        <div class="role-pill" onclick="selectRole('ops')">
+          <span class="role-icon">⚙️</span>
+          <div><div class="role-name">Operations Supervisor</div><div class="role-desc">Go to Ops Dashboard</div></div>
+        </div>
+        <div class="role-pill" onclick="selectRole('training')">
+          <span class="role-icon">📚</span>
+          <div><div class="role-name">Training Manager</div><div class="role-desc">Go to Training Dashboard</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="pin-entry" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px" id="pin-prompt">Enter GM PIN</div>
+      <div class="pin-dots">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+      <div class="pin-grid">
+        <div class="pin-key" onclick="pinKey('1')">1</div>
+        <div class="pin-key" onclick="pinKey('2')">2</div>
+        <div class="pin-key" onclick="pinKey('3')">3</div>
+        <div class="pin-key" onclick="pinKey('4')">4</div>
+        <div class="pin-key" onclick="pinKey('5')">5</div>
+        <div class="pin-key" onclick="pinKey('6')">6</div>
+        <div class="pin-key" onclick="pinKey('7')">7</div>
+        <div class="pin-key" onclick="pinKey('8')">8</div>
+        <div class="pin-key" onclick="pinKey('9')">9</div>
+        <div class="pin-key" onclick="pinBack()">⌫</div>
+        <div class="pin-key" onclick="pinKey('0')">0</div>
+        <div class="pin-key" onclick="pinCancel()" style="font-size:12px;color:var(--muted)">Back</div>
+      </div>
+      <div class="pin-error" id="pin-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHELL ===== -->
+<div class="shell">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-mark">⬡</div>
+      <div class="logo-text">
+        <div class="logo-name">CULEX</div>
+        <div class="logo-sub">Command Centre</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="top-pills">
+      <div class="pill">
+        <div class="db-dot pulse green" id="ops-status" title="Ops DB"></div>
+        <strong>OPS</strong> Firebase
+      </div>
+      <div class="pill">
+        <div class="db-dot pulse green" id="tr-status" title="Training DB"></div>
+        <strong>Training</strong> Firebase
+      </div>
+      <div class="pill" id="role-pill" style="display:none">
+        👤 <strong id="role-label">GM</strong>
+      </div>
+    </div>
+    <div id="clock"></div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- QUICK METRICS -->
+    <div>
+      <div class="sec-label">Live Metrics — Both Systems</div>
+      <div class="metrics-row">
+        <div class="metric-card danger">
+          <div class="mv" id="ops-urgent">—</div>
+          <div class="ml">Urgent Issues</div>
+          <div class="ms">Ops · Open now</div>
+        </div>
+        <div class="metric-card">
+          <div class="mv" id="ops-open">—</div>
+          <div class="ml">Open Tasks</div>
+          <div class="ms">Ops · Maintenance</div>
+        </div>
+        <div class="metric-card">
+          <div class="mv" id="ops-checklist">—</div>
+          <div class="ml">Checklist</div>
+          <div class="ms">Ops · Today</div>
+        </div>
+        <div class="metric-card success">
+          <div class="mv" id="tr-exams">—</div>
+          <div class="ml">Exams Passed</div>
+          <div class="ms">Training · All time</div>
+        </div>
+        <div class="metric-card">
+          <div class="mv" id="tr-joiners">—</div>
+          <div class="ml">Active Joiners</div>
+          <div class="ms">Training · Onboarding</div>
+        </div>
+        <div class="metric-card">
+          <div class="mv" id="tr-obs">—</div>
+          <div class="ml">Obs Score</div>
+          <div class="ms">Training · Weekly avg</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD LAUNCH CARDS -->
+    <div>
+      <div class="sec-label">Dashboards</div>
+      <div class="dash-grid">
+
+        <!-- OPS CARD -->
+        <div class="dash-card ops" onclick="goto('dash.html')">
+          <div class="dc-header">
+            <div class="dc-icon ops">⚙️</div>
+            <div>
+              <div class="dc-title">Operations Dashboard</div>
+              <div class="dc-url">dash.html — BOH · Maintenance · Checklists</div>
+            </div>
+            <div class="dc-arrow">→</div>
+          </div>
+          <div class="dc-stats">
+            <div class="dc-stat"><div class="v" id="ops-open2">—</div><div class="l">Open Issues</div></div>
+            <div class="dc-stat"><div class="v" id="ops-urgent2" style="color:var(--danger)">—</div><div class="l">Urgent</div></div>
+            <div class="dc-stat"><div class="v" id="ops-incidents">—</div><div class="l">Incidents</div></div>
+          </div>
+          <div class="dc-bar-wrap">
+            <span class="dc-bar-label">Today's checklist</span>
+            <div class="dc-bar"><div class="dc-bar-fill gold" id="ops-checklist-bar" style="width:0%"></div></div>
+            <span style="font-size:11px;color:var(--muted);width:32px;text-align:right" id="ops-checklist2">—</span>
+          </div>
+          <a class="dc-open-btn ops" onclick="event.stopPropagation()" href="dash.html" target="_blank">Open Ops Dashboard ↗</a>
+        </div>
+
+        <!-- TRAINING CARD -->
+        <div class="dash-card train" onclick="goto('training-dash.html')">
+          <div class="dc-header">
+            <div class="dc-icon train">📚</div>
+            <div>
+              <div class="dc-title">Training & Development</div>
+              <div class="dc-url">training-dash.html — Exams · SOPs · AI Assistant</div>
+            </div>
+            <div class="dc-arrow">→</div>
+          </div>
+          <div class="dc-stats">
+            <div class="dc-stat"><div class="v" id="tr-exams2">—</div><div class="l">Passed Exams</div></div>
+            <div class="dc-stat"><div class="v" id="tr-avg">—</div><div class="l">Avg Score</div></div>
+            <div class="dc-stat"><div class="v" id="tr-sheets">—</div><div class="l">Cheat Sheets</div></div>
+          </div>
+          <div class="dc-bar-wrap">
+            <span class="dc-bar-label">Avg exam score</span>
+            <div class="dc-bar"><div class="dc-bar-fill green" id="tr-avg-bar" style="width:0%"></div></div>
+            <span style="font-size:11px;color:var(--muted);width:32px;text-align:right" id="tr-avg2">—</span>
+          </div>
+          <a class="dc-open-btn train" onclick="event.stopPropagation()" href="training-dash.html" target="_blank">Open Training Dashboard ↗</a>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LIVE ACTIVITY FEEDS -->
+    <div>
+      <div class="sec-label">Recent Activity</div>
+      <div class="feeds-grid">
+        <div class="feed-card">
+          <div class="feed-card-header">
+            <span style="font-size:14px">⚙️</span>
+            <span class="feed-card-title">Ops — Latest Issues</span>
+          </div>
+          <div id="ops-feed"><div style="color:var(--muted);font-size:12px;padding:8px">Loading…</div></div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-card-header">
+            <span style="font-size:14px">📝</span>
+            <span class="feed-card-title">Training — Recent Exam Results</span>
+          </div>
+          <div id="tr-feed"><div style="color:var(--muted);font-size:12px;padding:8px">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYSTEM STATUS -->
+    <div class="status-bar">
+      <div class="status-item">🏨 <strong>Culex Hospitality Group</strong></div>
+      <div class="status-sep">|</div>
+      <div class="status-item">🔥 Ops DB: <strong>kitchen-tracker-35293</strong></div>
+      <div class="status-sep">|</div>
+      <div class="status-item">🔥 Training DB: <strong id="tr-db-label">kitchen-tracker-35293 (temp)</strong></div>
+      <div class="status-sep">|</div>
+      <div class="status-item">☁️ Cloudinary: <strong>db94rgiil</strong></div>
+      <div class="status-sep">|</div>
+      <div class="status-item">📚 <strong id="tr-manuals">—</strong> manuals uploaded</div>
+      <div class="status-sep">|</div>
+      <div class="status-item" id="last-sync">Last sync: <strong>—</strong></div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===== CLOCK =====
+function updateClock(){
+  const d = new Date();
+  document.getElementById('clock').textContent =
+    d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) +
+    '  ' + d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  document.querySelector('#last-sync strong').textContent = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(updateClock,1000); updateClock();
+
+// ===== MIRROR STATS to secondary elements =====
+function mirrorStats(){
+  const pairs = [
+    ['ops-open','ops-open2'],
+    ['ops-urgent','ops-urgent2'],
+    ['ops-checklist','ops-checklist2'],
+    ['tr-exams','tr-exams2'],
+    ['tr-avg','tr-avg2'],
+  ];
+  pairs.forEach(([src,dst])=>{
+    const s=document.getElementById(src), d=document.getElementById(dst);
+    if(s&&d){ const obs=new MutationObserver(()=>d.textContent=s.textContent); obs.observe(s,{childList:true,characterData:true,subtree:true}); d.textContent=s.textContent; }
+  });
+}
+document.addEventListener('masterReady', mirrorStats);
+
+// ===== NAVIGATE =====
+function goto(url){ window.open(url,'_blank'); }
+
+// ===== TOAST =====
+function toast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show '+type;
+  clearTimeout(t._t); t._t=setTimeout(()=>t.className='',3000);
+}
+
+// ===== PIN GATE =====
+const PINS = { gm:'1234', ops:null, training:null }; // gm PIN = 1234 — change before deploy
+let pinBuffer = '';
+let selectedRole = null;
+
+function selectRole(role){
+  selectedRole = role;
+  if(role === 'ops'){
+    window.location.href = 'dash.html'; return;
+  }
+  if(role === 'training'){
+    window.location.href = 'training-dash.html'; return;
+  }
+  // GM — show PIN entry
+  document.getElementById('pin-role-select').style.display = 'none';
+  document.getElementById('pin-entry').style.display = 'block';
+  pinBuffer = '';
+  updatePinDots();
+}
+
+function pinKey(k){
+  if(pinBuffer.length >= 4) return;
+  pinBuffer += k;
+  updatePinDots();
+  document.getElementById('pin-error').textContent = '';
+  if(pinBuffer.length === 4) setTimeout(checkPin, 150);
+}
+
+function pinBack(){
+  pinBuffer = pinBuffer.slice(0,-1);
+  updatePinDots();
+  document.getElementById('pin-error').textContent = '';
+}
+
+function pinCancel(){
+  pinBuffer = '';
+  selectedRole = null;
+  document.getElementById('pin-role-select').style.display = 'block';
+  document.getElementById('pin-entry').style.display = 'none';
+  document.getElementById('pin-error').textContent = '';
+  updatePinDots();
+}
+
+function updatePinDots(){
+  for(let i=0;i<4;i++){
+    document.getElementById('pd'+i).className = 'pin-dot' + (i < pinBuffer.length ? ' filled' : '');
+  }
+}
+
+function checkPin(){
+  if(pinBuffer === PINS.gm){
+    unlockDashboard();
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    pinBuffer = '';
+    updatePinDots();
+  }
+}
+
+function unlockDashboard(){
+  document.getElementById('pin-gate').classList.add('hidden');
+  document.getElementById('role-pill').style.display = 'flex';
+  document.getElementById('role-label').textContent = 'GM View';
+  toast('Welcome back, GM 👋','success');
+  sessionStorage.setItem('culex_unlocked','1');
+}
+
+// Check session
+if(sessionStorage.getItem('culex_unlocked')==='1'){
+  document.getElementById('pin-gate').classList.add('hidden');
+  document.getElementById('role-pill').style.display = 'flex';
+}
+</script>
+</body>
+</html>

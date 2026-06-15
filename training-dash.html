@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Culex Training & Development</title>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, push, set, onValue, remove, update }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+  const firebaseConfig = {
+    databaseURL: "https://kitchen-tracker-35293-default-rtdb.firebaseio.com"
+  };
+  const app = initializeApp(firebaseConfig);
+  window._db  = getDatabase(app);
+  window._ref  = ref;
+  window._push = push;
+  window._set  = set;
+  window._onValue = onValue;
+  window._remove  = remove;
+  window._update  = update;
+  window._firebaseReady = true;
+  document.dispatchEvent(new Event("firebaseReady"));
+</script>
+
+<style>
+/* ===== DESIGN TOKENS ===== */
+:root {
+  --black:   #0d0d0d;
+  --dark:    #141414;
+  --panel:   #1c1c1c;
+  --border:  #2a2a2a;
+  --gold:    #c9a84c;
+  --gold-lt: #e2c577;
+  --gold-dk: #8a6b24;
+  --cream:   #f5f0e8;
+  --muted:   #888888;
+  --danger:  #e05252;
+  --success: #4caf78;
+  --info:    #4c8fe0;
+  --warn:    #e0a84c;
+  --radius:  8px;
+  --font:    'Segoe UI', system-ui, sans-serif;
+  --mono:    'JetBrains Mono', 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--black); color: var(--cream); font-family: var(--font); font-size: 14px; }
+
+/* ===== LAYOUT ===== */
+.shell { display: grid; grid-template-rows: 60px 46px 1fr; height: 100vh; }
+
+/* ===== HEADER ===== */
+.topbar {
+  background: var(--dark);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 20px;
+}
+.topbar .logo {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 18px; font-weight: 700; letter-spacing: .5px;
+  color: var(--gold);
+}
+.topbar .logo svg { width:32px; height:32px; }
+.topbar .subtitle { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top:2px; }
+.topbar .spacer { flex: 1; }
+.topbar .pill {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 14px; font-size: 12px; color: var(--muted);
+}
+.topbar .pill span { color: var(--gold); font-weight: 600; }
+#clock { font-size: 13px; color: var(--gold-lt); font-variant-numeric: tabular-nums; }
+
+/* ===== TAB BAR ===== */
+.tabbar {
+  background: var(--dark);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: stretch;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabbar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 12px; font-family: var(--font);
+  padding: 0 18px; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.tab-btn:hover { color: var(--cream); }
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-btn .t-icon { font-size: 14px; }
+
+/* ===== MAIN CONTENT ===== */
+.content { overflow: hidden; display: grid; }
+.tab-panel { display: none; overflow-y: auto; padding: 20px; }
+.tab-panel.active { display: block; }
+
+/* ===== SECTION TITLE ===== */
+.sec-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 2px;
+  color: var(--gold); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sec-title::after { content:''; flex:1; height:1px; background: var(--border); }
+
+/* ===== CARDS & GRID ===== */
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+@media(max-width:900px){ .grid-3,.grid-4 { grid-template-columns:1fr 1fr; } }
+@media(max-width:600px){ .grid-2,.grid-3,.grid-4 { grid-template-columns:1fr; } }
+
+/* ===== STAT CARDS ===== */
+.stat-card { background: var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px 20px; }
+.stat-card .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+.stat-card .value { font-size:28px; font-weight:700; color:var(--gold); line-height:1.2; margin-top:4px; }
+.stat-card .sub { font-size:11px; color:var(--muted); margin-top:2px; }
+
+/* ===== TABLES ===== */
+.tbl-wrap { overflow-x:auto; border-radius:var(--radius); border:1px solid var(--border); }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+thead tr { background: #1f1f1f; }
+th { padding:10px 14px; text-align:left; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:500; white-space:nowrap; }
+td { padding:10px 14px; border-top:1px solid var(--border); vertical-align:middle; }
+tr:hover td { background: rgba(255,255,255,.02); }
+
+/* ===== BADGES ===== */
+.badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600; }
+.badge-gold { background:rgba(201,168,76,.15); color:var(--gold); }
+.badge-green { background:rgba(76,175,120,.15); color:var(--success); }
+.badge-red { background:rgba(224,82,82,.15); color:var(--danger); }
+.badge-blue { background:rgba(76,143,224,.15); color:var(--info); }
+.badge-gray { background:rgba(136,136,136,.15); color:var(--muted); }
+
+/* ===== BUTTONS ===== */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:7px 16px; border-radius:6px; border:none; cursor:pointer; font-size:13px; font-family:var(--font); transition:filter .15s; font-weight:500; }
+.btn:hover { filter:brightness(1.15); }
+.btn-gold { background:var(--gold); color:var(--black); }
+.btn-outline { background:transparent; border:1px solid var(--border); color:var(--cream); }
+.btn-danger { background:var(--danger); color:#fff; }
+.btn-sm { padding:4px 10px; font-size:12px; }
+
+/* ===== FORMS ===== */
+.form-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+.field { display:flex; flex-direction:column; gap:4px; }
+.field label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; }
+input[type=text], input[type=date], input[type=number], input[type=email],
+select, textarea {
+  background: var(--black); border:1px solid var(--border);
+  color:var(--cream); border-radius:6px; padding:7px 11px;
+  font-size:13px; font-family:var(--font); outline:none;
+  transition: border-color .15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--gold); }
+textarea { resize:vertical; min-height:80px; }
+select option { background: var(--dark); }
+
+/* ===== FILE UPLOAD ZONE ===== */
+.upload-zone {
+  border:2px dashed var(--border); border-radius:var(--radius);
+  padding:32px; text-align:center; color:var(--muted);
+  cursor:pointer; transition: border-color .2s, color .2s;
+}
+.upload-zone:hover { border-color:var(--gold); color:var(--gold); }
+.upload-zone input { display:none; }
+
+/* ===== MODAL ===== */
+.modal-bg {
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,.75); z-index:1000;
+  align-items:center; justify-content:center;
+}
+.modal-bg.open { display:flex; }
+.modal {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); padding:24px; max-width:540px; width:95%;
+  max-height:90vh; overflow-y:auto;
+}
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.modal-title { font-size:15px; font-weight:700; color:var(--gold); }
+.modal-close { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; }
+.modal-close:hover { color:var(--cream); }
+
+/* ===== AI ASSISTANT ===== */
+.ai-panel {
+  background: var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius); display:flex; flex-direction:column; height:520px;
+}
+.ai-header {
+  padding:14px 16px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+}
+.ai-status-dot { width:8px; height:8px; border-radius:50%; background:var(--success); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.ai-title { font-size:14px; font-weight:600; color:var(--gold); }
+.ai-subtitle { font-size:11px; color:var(--muted); margin-left:auto; }
+.ai-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+.ai-msg { max-width:80%; padding:10px 14px; border-radius:10px; font-size:13px; line-height:1.5; }
+.ai-msg.bot { background:#1f2a1f; border:1px solid rgba(76,175,120,.2); color:var(--cream); align-self:flex-start; border-bottom-left-radius:2px; }
+.ai-msg.user { background:rgba(201,168,76,.12); border:1px solid rgba(201,168,76,.25); color:var(--cream); align-self:flex-end; border-bottom-right-radius:2px; }
+.ai-input-row {
+  padding:12px 16px; border-top:1px solid var(--border);
+  display:flex; gap:8px; align-items:center;
+}
+.ai-input-row input { flex:1; }
+.mic-btn {
+  width:36px; height:36px; border-radius:50%; border:1px solid var(--border);
+  background:var(--dark); cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:16px; transition:background .15s;
+}
+.mic-btn.listening { background:var(--danger); border-color:var(--danger); animation:pulse 1s infinite; }
+
+/* ===== OUTLET SELECTOR ===== */
+.outlet-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.chip {
+  padding:5px 14px; border-radius:20px; font-size:12px; cursor:pointer;
+  border:1px solid var(--border); background:transparent; color:var(--muted);
+  transition: all .15s;
+}
+.chip.active, .chip:hover { border-color:var(--gold); color:var(--gold); background:rgba(201,168,76,.1); }
+
+/* ===== PROGRESS BAR ===== */
+.progress-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+.progress-fill { height:100%; background:var(--gold); border-radius:3px; transition:width .4s; }
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ===== EXAM STYLES ===== */
+.exam-card { position:relative; }
+.exam-card .score-ring {
+  width:54px; height:54px; border-radius:50%;
+  border:3px solid var(--gold); display:flex; align-items:center;
+  justify-content:center; font-size:13px; font-weight:700; color:var(--gold);
+}
+.q-block { background:var(--dark); border:1px solid var(--border); border-radius:6px; padding:14px; margin-bottom:10px; }
+.q-block .q-text { font-weight:600; margin-bottom:10px; line-height:1.5; }
+.q-options { display:flex; flex-direction:column; gap:6px; }
+.q-opt { display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 10px; border-radius:6px; transition:background .12s; }
+.q-opt:hover { background:rgba(255,255,255,.04); }
+.q-opt input { accent-color: var(--gold); }
+
+/* ===== WEEKLY OBS ===== */
+.obs-row { display:grid; grid-template-columns:140px repeat(5,1fr); gap:1px; }
+.obs-cell {
+  padding:10px 8px; border:1px solid var(--border);
+  font-size:12px; display:flex; align-items:center; justify-content:center;
+  text-align:center;
+}
+.obs-cell.header { background:#1f1f1f; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; font-weight:600; }
+.obs-cell.name-col { justify-content:flex-start; font-weight:600; }
+.obs-score { width:28px; height:28px; border-radius:4px; border:1px solid var(--border); background:var(--black); color:var(--cream); text-align:center; font-size:12px; }
+
+/* ===== NEW JOINER ===== */
+.joiner-card { border-left:3px solid var(--gold); }
+.timeline { position:relative; padding-left:24px; }
+.timeline::before { content:''; position:absolute; left:7px; top:0; bottom:0; width:2px; background:var(--border); }
+.tl-step { position:relative; margin-bottom:16px; }
+.tl-step::before {
+  content:''; position:absolute; left:-20px; top:4px;
+  width:10px; height:10px; border-radius:50%; background:var(--border); border:2px solid var(--black);
+}
+.tl-step.done::before { background:var(--gold); }
+.tl-step.active::before { background:var(--success); box-shadow:0 0 0 3px rgba(76,175,120,.3); }
+.tl-step .step-title { font-weight:600; font-size:13px; }
+.tl-step .step-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+
+/* ===== NOTIFICATION TOAST ===== */
+#toast {
+  position:fixed; bottom:24px; right:24px; z-index:9999;
+  background:var(--panel); border:1px solid var(--border); border-radius:8px;
+  padding:12px 18px; font-size:13px; max-width:300px;
+  transform:translateY(100px); opacity:0; transition:all .3s;
+}
+#toast.show { transform:translateY(0); opacity:1; }
+#toast.success { border-color:var(--success); color:var(--success); }
+#toast.error   { border-color:var(--danger);  color:var(--danger);  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ===== TOP BAR ===== -->
+<header class="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="6" fill="#c9a84c" opacity=".15"/>
+      <path d="M8 22L16 10L24 22" stroke="#c9a84c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M11 18h10" stroke="#c9a84c" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <div>CULEX</div>
+      <div class="subtitle">Training &amp; Development</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="pill">Firebase: <span>BOH Connected</span></div>
+  <div id="clock"></div>
+</header>
+
+<!-- ===== TAB BAR ===== -->
+<nav class="tabbar">
+  <button class="tab-btn active" onclick="showTab('overview')"    ><span class="t-icon">📊</span> Overview</button>
+  <button class="tab-btn"        onclick="showTab('cheatsheets')" ><span class="t-icon">📋</span> Cheat Sheets</button>
+  <button class="tab-btn"        onclick="showTab('manuals')"     ><span class="t-icon">📚</span> Manuals &amp; SOPs</button>
+  <button class="tab-btn"        onclick="showTab('exams')"       ><span class="t-icon">📝</span> Exams</button>
+  <button class="tab-btn"        onclick="showTab('newjoiner')"   ><span class="t-icon">🆕</span> New Joiner Info</button>
+  <button class="tab-btn"        onclick="showTab('observation')" ><span class="t-icon">👁</span> Weekly Observation</button>
+  <button class="tab-btn"        onclick="showTab('ai')"          ><span class="t-icon">🤖</span> AI Assistant</button>
+</nav>
+
+<!-- ===== CONTENT ===== -->
+<main class="content">
+
+<!-- ======================== OVERVIEW ======================== -->
+<section id="tab-overview" class="tab-panel active">
+  <div class="sec-title">Training Overview</div>
+
+  <div class="grid-4" style="margin-bottom:20px">
+    <div class="stat-card"><div class="label">Staff Trained</div><div class="value" id="ov-trained">—</div><div class="sub">This month</div></div>
+    <div class="stat-card"><div class="label">Exams Passed</div><div class="value" id="ov-passed">—</div><div class="sub">≥ 80% threshold</div></div>
+    <div class="stat-card"><div class="label">Avg Score</div><div class="value" id="ov-avg">—%</div><div class="sub">All outlets</div></div>
+    <div class="stat-card"><div class="label">New Joiners</div><div class="value" id="ov-joiners">—</div><div class="sub">Onboarding active</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="sec-title">Recent Exam Results</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Outlet</th><th>Module</th><th>Score</th><th>Status</th></tr></thead>
+          <tbody id="ov-exam-tbody"><tr><td colspan="5" style="color:var(--muted);text-align:center">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-title">Observation Highlights — This Week</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Staff</th><th>Outlet</th><th>Avg Score</th><th>Trend</th></tr></thead>
+          <tbody id="ov-obs-tbody"><tr><td colspan="4" style="color:var(--muted);text-align:center">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== CHEAT SHEETS ======================== -->
+<section id="tab-cheatsheets" class="tab-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="sec-title" style="margin:0">Outlet Cheat Sheets</div>
+    <button class="btn btn-gold btn-sm" onclick="openModal('cs-modal')">+ Add Cheat Sheet</button>
+  </div>
+
+  <div class="outlet-chips" id="cs-outlet-filter">
+    <div class="chip active" onclick="filterCS(this,'all')">All Outlets</div>
+    <div class="chip" onclick="filterCS(this,'AllDay')">All Day Dining</div>
+    <div class="chip" onclick="filterCS(this,'Bar')">Bar</div>
+    <div class="chip" onclick="filterCS(this,'Banquet')">Banquet</div>
+    <div class="chip" onclick="filterCS(this,'Kitchen')">Kitchen</div>
+    <div class="chip" onclick="filterCS(this,'Room')">Room Service</div>
+    <div class="chip" onclick="filterCS(this,'Pool')">Pool Bar</div>
+  </div>
+
+  <div id="cs-grid" class="grid-3">
+    <!-- populated by JS -->
+    <div class="card" style="text-align:center;padding:40px;color:var(--muted)">Loading cheat sheets…</div>
+  </div>
+</section>
+
+<!-- ======================== MANUALS & SOPs ======================== -->
+<section id="tab-manuals" class="tab-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="sec-title" style="margin:0">Training Manuals &amp; SOPs</div>
+    <button class="btn btn-gold btn-sm" onclick="openModal('man-modal')">+ Upload Document</button>
+  </div>
+
+  <div class="form-row" style="margin-bottom:16px">
+    <div class="field"><label>Category</label>
+      <select id="man-cat-filter" onchange="renderManuals()">
+        <option value="all">All Categories</option>
+        <option value="SOP">SOPs</option>
+        <option value="Manual">Training Manual</option>
+        <option value="Policy">Policy</option>
+        <option value="Recipe">Recipe Book</option>
+        <option value="Brand">Brand Standard</option>
+      </select>
+    </div>
+    <div class="field"><label>Search</label>
+      <input type="text" id="man-search" placeholder="Search documents…" oninput="renderManuals()" style="width:220px" />
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr><th>Title</th><th>Category</th><th>Outlet</th><th>Version</th><th>Updated</th><th>File</th><th></th></tr>
+      </thead>
+      <tbody id="man-tbody"><tr><td colspan="7" style="color:var(--muted);text-align:center">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================== EXAMS ======================== -->
+<section id="tab-exams" class="tab-panel">
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+    <div class="sec-title" style="margin:0;flex:1">Exams</div>
+    <button class="btn btn-outline btn-sm" onclick="showExamView('list')">📋 All Exams</button>
+    <button class="btn btn-outline btn-sm" onclick="showExamView('results')">📊 Results</button>
+    <button class="btn btn-gold btn-sm" onclick="openModal('exam-modal')">+ Create Exam</button>
+  </div>
+
+  <div id="exam-view-list">
+    <div class="grid-3" id="exam-cards-grid">
+      <div class="card" style="color:var(--muted);text-align:center;padding:40px">Loading exams…</div>
+    </div>
+  </div>
+
+  <div id="exam-view-results" style="display:none">
+    <div class="form-row" style="margin-bottom:16px">
+      <div class="field"><label>Filter Outlet</label>
+        <select id="res-outlet-filter" onchange="renderResults()">
+          <option value="all">All Outlets</option>
+          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
+          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+        </select>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Staff Name</th><th>Outlet</th><th>Exam</th><th>Score</th><th>Date</th><th>Status</th></tr></thead>
+        <tbody id="results-tbody"><tr><td colspan="6" style="color:var(--muted);text-align:center">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Live exam taking view -->
+  <div id="exam-view-take" style="display:none; max-width:640px">
+    <div id="take-header" style="margin-bottom:20px"></div>
+    <div id="take-questions"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px">
+      <button class="btn btn-outline" onclick="showExamView('list')">← Back</button>
+      <button class="btn btn-gold" onclick="submitExam()">Submit Exam</button>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== NEW JOINER INFO ======================== -->
+<section id="tab-newjoiner" class="tab-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="sec-title" style="margin:0">New Joiner Onboarding</div>
+    <button class="btn btn-gold btn-sm" onclick="openModal('nj-modal')">+ Add New Joiner</button>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:20px">
+    <div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Role</th><th>Outlet</th><th>Start</th><th>Progress</th><th></th></tr></thead>
+          <tbody id="nj-tbody"><tr><td colspan="6" style="color:var(--muted);text-align:center">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">Onboarding Checklist Template</div>
+      <div class="timeline">
+        <div class="tl-step done"><div class="step-title">Day 1 – Welcome &amp; Orientation</div><div class="step-sub">Hotel tour, ID card, uniform issue, HR paperwork</div></div>
+        <div class="tl-step done"><div class="step-title">Day 2–3 – Brand Standards</div><div class="step-sub">Culex values, grooming standards, service philosophy</div></div>
+        <div class="tl-step active"><div class="step-title">Day 4–7 – Outlet Training</div><div class="step-sub">SOP walk-through, cheat sheet review, shadow shifts</div></div>
+        <div class="tl-step"><div class="step-title">Week 2 – Practical Assessment</div><div class="step-sub">Trainer observation, knowledge quiz (≥80% pass)</div></div>
+        <div class="tl-step"><div class="step-title">Week 3–4 – Independent Practice</div><div class="step-sub">Supervised solo shifts, daily feedback from supervisor</div></div>
+        <div class="tl-step"><div class="step-title">End of Month – Final Exam</div><div class="step-sub">Written + practical, sign-off for probation confirmation</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Welcome Kit Download Links -->
+  <div class="card">
+    <div class="sec-title">Welcome Kit &amp; Resources</div>
+    <div class="grid-4">
+      <a class="card" style="text-decoration:none;cursor:pointer;text-align:center;padding:20px" href="#" onclick="toast('Feature: link to Cloudinary PDF','success')">
+        <div style="font-size:28px;margin-bottom:8px">📄</div>
+        <div style="font-weight:600;font-size:13px">Welcome Letter</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">PDF</div>
+      </a>
+      <a class="card" style="text-decoration:none;cursor:pointer;text-align:center;padding:20px" href="#" onclick="toast('Feature: link to Cloudinary PDF','success')">
+        <div style="font-size:28px;margin-bottom:8px">📋</div>
+        <div style="font-weight:600;font-size:13px">Brand Standards</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">PDF</div>
+      </a>
+      <a class="card" style="text-decoration:none;cursor:pointer;text-align:center;padding:20px" href="#" onclick="toast('Feature: link to Cloudinary PDF','success')">
+        <div style="font-size:28px;margin-bottom:8px">🗺️</div>
+        <div style="font-weight:600;font-size:13px">Property Map</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">PDF</div>
+      </a>
+      <a class="card" style="text-decoration:none;cursor:pointer;text-align:center;padding:20px" href="#" onclick="toast('Feature: link to Cloudinary PDF','success')">
+        <div style="font-size:28px;margin-bottom:8px">📞</div>
+        <div style="font-weight:600;font-size:13px">Key Contacts</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">PDF</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ======================== WEEKLY OBSERVATION ======================== -->
+<section id="tab-observation" class="tab-panel">
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+    <div class="sec-title" style="margin:0;flex:1">Weekly Observation Scores</div>
+    <div class="field"><label>Week of</label>
+      <input type="date" id="obs-week" />
+    </div>
+    <div class="field"><label>Outlet</label>
+      <select id="obs-outlet" onchange="renderObs()">
+        <option value="all">All Outlets</option>
+        <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
+        <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+      </select>
+    </div>
+    <button class="btn btn-gold btn-sm" onclick="openModal('obs-modal')">+ Add Observation</button>
+    <button class="btn btn-outline btn-sm" onclick="exportObs()">⬇ Export CSV</button>
+  </div>
+
+  <!-- Criteria header -->
+  <div style="overflow-x:auto">
+    <div class="obs-row" style="min-width:700px">
+      <div class="obs-cell header name-col">Staff Name</div>
+      <div class="obs-cell header">Product<br>Knowledge</div>
+      <div class="obs-cell header">Guest<br>Interaction</div>
+      <div class="obs-cell header">Grooming &amp;<br>Appearance</div>
+      <div class="obs-cell header">SOP<br>Adherence</div>
+      <div class="obs-cell header">Avg</div>
+    </div>
+    <div id="obs-rows" style="min-width:700px">
+      <div class="obs-row"><div class="obs-cell" colspan="6" style="color:var(--muted)">Loading…</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px" class="card">
+    <div class="sec-title">Observation Trend</div>
+    <canvas id="obs-chart" height="160"></canvas>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center">
+      Weekly average scores across all criteria — last 6 weeks
+    </div>
+  </div>
+</section>
+
+<!-- ======================== AI ASSISTANT ======================== -->
+<section id="tab-ai" class="tab-panel">
+  <div class="sec-title">AI Training Assistant</div>
+
+  <div style="margin-bottom:12px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Ask about any outlet's cheat sheet, SOP, or menu knowledge:</div>
+    <div class="outlet-chips" id="ai-outlet-chips">
+      <div class="chip active" onclick="setAIOutlet(this,'General')">General</div>
+      <div class="chip" onclick="setAIOutlet(this,'All Day Dining')">All Day Dining</div>
+      <div class="chip" onclick="setAIOutlet(this,'Bar')">Bar</div>
+      <div class="chip" onclick="setAIOutlet(this,'Banquet')">Banquet</div>
+      <div class="chip" onclick="setAIOutlet(this,'Kitchen')">Kitchen</div>
+      <div class="chip" onclick="setAIOutlet(this,'Room Service')">Room Service</div>
+      <div class="chip" onclick="setAIOutlet(this,'Pool Bar')">Pool Bar</div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="gap:16px;align-items:start">
+    <div class="ai-panel">
+      <div class="ai-header">
+        <div class="ai-status-dot"></div>
+        <div class="ai-title">Culex AI — Training Assistant</div>
+        <div class="ai-subtitle" id="ai-outlet-label">Outlet: General</div>
+      </div>
+      <div class="ai-messages" id="ai-messages">
+        <div class="ai-msg bot">
+          👋 Hello! I'm your Culex Training Assistant. Select an outlet above and ask me anything — menu knowledge, SOPs, service steps, cheat sheet content, or exam preparation tips.
+          <br><br>You can also press the 🎤 microphone to ask by voice.
+        </div>
+      </div>
+      <div class="ai-input-row">
+        <button class="mic-btn" id="mic-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
+        <input type="text" id="ai-input" placeholder="Ask a training question…" onkeydown="if(event.key==='Enter') sendAI()" />
+        <button class="btn btn-gold btn-sm" onclick="sendAI()">Send</button>
+      </div>
+    </div>
+
+    <div class="card" style="align-self:start">
+      <div class="sec-title">Suggested Questions</div>
+      <div style="display:flex;flex-direction:column;gap:8px" id="ai-suggestions">
+        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">What are the steps for a proper wine pour?</button>
+        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">Describe our standard guest greeting SOP</button>
+        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">What allergens should staff know for the buffet?</button>
+        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">How do we handle a guest complaint?</button>
+        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">What are the grooming standards?</button>
+        <button class="btn btn-outline" style="justify-content:flex-start;text-align:left" onclick="askSuggested(this)">Explain the bar's closing checklist</button>
+      </div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">Voice Status</div>
+        <div id="voice-status" style="font-size:12px;color:var(--muted)">Voice input: ready</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main><!-- /content -->
+</div><!-- /shell -->
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Add Cheat Sheet -->
+<div class="modal-bg" id="cs-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Add Cheat Sheet</div><button class="modal-close" onclick="closeModal('cs-modal')">✕</button></div>
+    <div class="form-row"><div class="field"><label>Title</label><input type="text" id="cs-title" placeholder="e.g. Bar Cocktail Menu" style="width:300px"/></div></div>
+    <div class="form-row">
+      <div class="field"><label>Outlet</label>
+        <select id="cs-outlet">
+          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
+          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+        </select>
+      </div>
+      <div class="field"><label>Category</label>
+        <select id="cs-category">
+          <option>Menu Knowledge</option><option>Service Steps</option><option>SOP</option>
+          <option>Recipe</option><option>Safety</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field" style="flex:1"><label>Content / Notes</label>
+        <textarea id="cs-content" rows="5" placeholder="Paste cheat sheet content here…"></textarea>
+      </div>
+    </div>
+    <div class="upload-zone" onclick="document.getElementById('cs-file').click()">
+      <input type="file" id="cs-file" accept=".pdf,.jpg,.png"/>
+      📎 Click to attach PDF or image (uploads to Cloudinary)
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-outline" onclick="closeModal('cs-modal')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveCheatSheet()">Save Cheat Sheet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Manual -->
+<div class="modal-bg" id="man-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Upload Document</div><button class="modal-close" onclick="closeModal('man-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="field"><label>Title</label><input type="text" id="man-title" style="width:300px" placeholder="Document title"/></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Category</label>
+        <select id="man-cat">
+          <option>SOP</option><option>Manual</option><option>Policy</option><option>Recipe</option><option>Brand</option>
+        </select>
+      </div>
+      <div class="field"><label>Outlet</label>
+        <select id="man-outlet">
+          <option>All Outlets</option>
+          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
+          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+        </select>
+      </div>
+      <div class="field"><label>Version</label><input type="text" id="man-version" style="width:80px" placeholder="v1.0"/></div>
+    </div>
+    <div class="upload-zone" onclick="document.getElementById('man-file').click()">
+      <input type="file" id="man-file" accept=".pdf,.docx,.pptx"/>
+      📎 Click to attach PDF / DOCX / PPTX (uploads to Cloudinary)
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-outline" onclick="closeModal('man-modal')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveManual()">Upload Document</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Exam -->
+<div class="modal-bg" id="exam-modal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header"><div class="modal-title">Create Exam</div><button class="modal-close" onclick="closeModal('exam-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="field"><label>Exam Title</label><input type="text" id="ex-title" style="width:280px" placeholder="e.g. Bar Knowledge Test"/></div>
+      <div class="field"><label>Outlet</label>
+        <select id="ex-outlet">
+          <option>All Outlets</option>
+          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
+          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Pass Score (%)</label><input type="number" id="ex-pass" value="80" style="width:80px"/></div>
+      <div class="field"><label>Time Limit (min)</label><input type="number" id="ex-time" value="30" style="width:80px"/></div>
+    </div>
+    <div style="margin-bottom:10px;font-size:12px;color:var(--muted)">Questions (one per line: Q | A | B | C | D | CorrectLetter)</div>
+    <textarea id="ex-questions" rows="8" style="width:100%;font-family:var(--mono);font-size:12px"
+      placeholder="Which wine is served at 8–10°C? | Red | White | Rosé | Sparkling | D
+What does SOP stand for? | Standard Operating Procedure | Staff Operations Policy | Service Order Protocol | System Of Procedures | A"></textarea>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-outline" onclick="closeModal('exam-modal')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveExam()">Create Exam</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add New Joiner -->
+<div class="modal-bg" id="nj-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Add New Joiner</div><button class="modal-close" onclick="closeModal('nj-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="field"><label>Full Name</label><input type="text" id="nj-name" style="width:220px"/></div>
+      <div class="field"><label>Role / Position</label><input type="text" id="nj-role" style="width:180px"/></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Outlet</label>
+        <select id="nj-outlet">
+          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
+          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+        </select>
+      </div>
+      <div class="field"><label>Start Date</label><input type="date" id="nj-start"/></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Trainer Assigned</label><input type="text" id="nj-trainer" style="width:220px"/></div>
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-outline" onclick="closeModal('nj-modal')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveNewJoiner()">Add New Joiner</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Observation -->
+<div class="modal-bg" id="obs-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Add Observation</div><button class="modal-close" onclick="closeModal('obs-modal')">✕</button></div>
+    <div class="form-row">
+      <div class="field"><label>Staff Name</label><input type="text" id="ob-name" style="width:200px"/></div>
+      <div class="field"><label>Outlet</label>
+        <select id="ob-outlet">
+          <option>All Day Dining</option><option>Bar</option><option>Banquet</option>
+          <option>Kitchen</option><option>Room Service</option><option>Pool Bar</option>
+        </select>
+      </div>
+      <div class="field"><label>Week of</label><input type="date" id="ob-week"/></div>
+    </div>
+    <div class="grid-2" style="gap:10px;margin-bottom:12px">
+      <div class="field"><label>Product Knowledge (1–5)</label><input type="number" id="ob-s1" min="1" max="5" value="3"/></div>
+      <div class="field"><label>Guest Interaction (1–5)</label><input type="number" id="ob-s2" min="1" max="5" value="3"/></div>
+      <div class="field"><label>Grooming &amp; Appearance (1–5)</label><input type="number" id="ob-s3" min="1" max="5" value="3"/></div>
+      <div class="field"><label>SOP Adherence (1–5)</label><input type="number" id="ob-s4" min="1" max="5" value="3"/></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="ob-notes" rows="3" placeholder="Observation notes…"></textarea></div>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-outline" onclick="closeModal('obs-modal')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveObs()">Save Observation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<script>
+// ===== CLOCK =====
+function updateClock(){
+  const d = new Date();
+  document.getElementById('clock').textContent =
+    d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) +
+    '  ' + d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ===== TAB SWITCH =====
+function showTab(id){
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ===== MODAL =====
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-bg').forEach(m => {
+  m.addEventListener('click', e => { if(e.target === m) m.classList.remove('open'); });
+});
+
+// ===== TOAST =====
+function toast(msg, type='success'){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.className = '', 3000);
+}
+
+// ===== FIREBASE HELPERS =====
+function fbRef(path){ return window._ref(window._db, path); }
+function fbListen(path, cb){
+  window._onValue(fbRef(path), snap => cb(snap.val() || {}));
+}
+function fbPush(path, data){ return window._push(fbRef(path), data); }
+function fbSet(path, data){ return window._set(fbRef(path), data); }
+function fbRemove(path){ return window._remove(fbRef(path)); }
+
+// ===== CLOUDINARY UPLOAD =====
+async function cloudinaryUpload(file){
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', 'culex_uploads');
+  const r = await fetch('https://api.cloudinary.com/v1_1/db94rgiil/auto/upload', { method:'POST', body:fd });
+  const d = await r.json();
+  return d.secure_url || null;
+}
+
+// ===========================
+// ===== CHEAT SHEETS ========
+// ===========================
+let allCS = {};
+let csFilter = 'all';
+
+function filterCS(el, val){
+  document.querySelectorAll('#cs-outlet-filter .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  csFilter = val;
+  renderCS();
+}
+
+function renderCS(){
+  const grid = document.getElementById('cs-grid');
+  const items = Object.entries(allCS).filter(([k,v]) =>
+    csFilter === 'all' || (v.outlet || '').includes(csFilter)
+  );
+  if(!items.length){
+    grid.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--muted)">No cheat sheets yet. Click + Add to create one.</div>';
+    return;
+  }
+  grid.innerHTML = items.map(([k,v]) => `
+    <div class="card" style="position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+        <span class="badge badge-gold">${v.outlet || 'General'}</span>
+        <button class="btn btn-sm" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px" onclick="deleteCS('${k}')">🗑</button>
+      </div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px">${v.title || 'Untitled'}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${v.category || ''}</div>
+      <div style="font-size:12px;color:var(--cream);line-height:1.6;white-space:pre-wrap;max-height:120px;overflow:hidden">${(v.content||'').slice(0,300)}</div>
+      ${v.fileUrl ? `<a href="${v.fileUrl}" target="_blank" class="btn btn-outline btn-sm" style="margin-top:10px">📎 View Attachment</a>` : ''}
+      <div style="font-size:10px;color:var(--muted);margin-top:8px">${v.createdAt || ''}</div>
+    </div>
+  `).join('');
+}
+
+async function saveCheatSheet(){
+  const title   = document.getElementById('cs-title').value.trim();
+  const outlet  = document.getElementById('cs-outlet').value;
+  const category= document.getElementById('cs-category').value;
+  const content = document.getElementById('cs-content').value.trim();
+  const file    = document.getElementById('cs-file').files[0];
+  if(!title){ toast('Title is required','error'); return; }
+  let fileUrl = null;
+  if(file){ toast('Uploading file…',''); fileUrl = await cloudinaryUpload(file); }
+  await fbPush('training/cheatsheets', { title, outlet, category, content, fileUrl, createdAt: new Date().toLocaleDateString('en-GB') });
+  closeModal('cs-modal');
+  toast('Cheat sheet saved!', 'success');
+  document.getElementById('cs-title').value = '';
+  document.getElementById('cs-content').value = '';
+}
+
+function deleteCS(k){
+  if(!confirm('Delete this cheat sheet?')) return;
+  fbRemove('training/cheatsheets/'+k);
+  toast('Deleted','success');
+}
+
+// ===========================
+// ===== MANUALS / SOPs ======
+// ===========================
+let allManuals = {};
+
+function renderManuals(){
+  const cat = document.getElementById('man-cat-filter').value;
+  const q   = (document.getElementById('man-search').value||'').toLowerCase();
+  const tbody = document.getElementById('man-tbody');
+  const items = Object.entries(allManuals).filter(([k,v]) =>
+    (cat==='all' || v.category===cat) &&
+    (!q || (v.title||'').toLowerCase().includes(q))
+  );
+  if(!items.length){ tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center">No documents found.</td></tr>'; return; }
+  tbody.innerHTML = items.map(([k,v]) => `
+    <tr>
+      <td><strong>${v.title||'—'}</strong></td>
+      <td><span class="badge badge-blue">${v.category||'—'}</span></td>
+      <td>${v.outlet||'—'}</td>
+      <td>${v.version||'—'}</td>
+      <td>${v.updatedAt||v.createdAt||'—'}</td>
+      <td>${v.fileUrl ? `<a href="${v.fileUrl}" target="_blank" style="color:var(--gold)">📎 Open</a>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td><button class="btn btn-sm" style="background:none;border:none;color:var(--muted);cursor:pointer" onclick="deleteManual('${k}')">🗑</button></td>
+    </tr>
+  `).join('');
+}
+
+async function saveManual(){
+  const title   = document.getElementById('man-title').value.trim();
+  const category= document.getElementById('man-cat').value;
+  const outlet  = document.getElementById('man-outlet').value;
+  const version = document.getElementById('man-version').value || 'v1.0';
+  const file    = document.getElementById('man-file').files[0];
+  if(!title){ toast('Title required','error'); return; }
+  let fileUrl = null;
+  if(file){ toast('Uploading…'); fileUrl = await cloudinaryUpload(file); }
+  await fbPush('training/manuals', { title, category, outlet, version, fileUrl, createdAt: new Date().toLocaleDateString('en-GB') });
+  closeModal('man-modal');
+  toast('Document uploaded!','success');
+}
+
+function deleteManual(k){
+  if(!confirm('Delete this document?')) return;
+  fbRemove('training/manuals/'+k);
+}
+
+// ===========================
+// ===== EXAMS ===============
+// ===========================
+let allExams = {}, allResults = {}, currentExam = null;
+
+function showExamView(v){
+  document.getElementById('exam-view-list').style.display    = v==='list'    ? '' : 'none';
+  document.getElementById('exam-view-results').style.display = v==='results' ? '' : 'none';
+  document.getElementById('exam-view-take').style.display    = v==='take'    ? '' : 'none';
+  if(v==='results') renderResults();
+}
+
+function renderExamCards(){
+  const grid = document.getElementById('exam-cards-grid');
+  const items = Object.entries(allExams);
+  if(!items.length){ grid.innerHTML = '<div class="card" style="color:var(--muted);text-align:center;padding:40px">No exams yet.</div>'; return; }
+  grid.innerHTML = items.map(([k,v]) => {
+    const qs = parseQuestions(v.questions||'');
+    return `
+    <div class="card exam-card">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+        <span class="badge badge-blue">${v.outlet||'All'}</span>
+        <button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px" onclick="deleteExam('${k}')">🗑</button>
+      </div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">${v.title||'Untitled'}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${qs.length} question${qs.length!==1?'s':''} · Pass: ${v.passScore||80}% · ${v.timeLimit||30} min</div>
+      <button class="btn btn-gold btn-sm" style="width:100%" onclick="startExam('${k}')">Take Exam</button>
+    </div>`;
+  }).join('');
+}
+
+function parseQuestions(raw){
+  return (raw||'').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const p = l.split('|').map(x => x.trim());
+    return { q: p[0], opts: [p[1],p[2],p[3],p[4]], ans: p[5] };
+  }).filter(x => x.q);
+}
+
+function startExam(k){
+  currentExam = { key: k, ...allExams[k] };
+  const qs = parseQuestions(currentExam.questions);
+  document.getElementById('take-header').innerHTML = `
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">${currentExam.title}</div>
+    <div style="font-size:12px;color:var(--muted)">${qs.length} questions · Pass ≥ ${currentExam.passScore||80}%</div>
+  `;
+  document.getElementById('take-questions').innerHTML = qs.map((q,i) => `
+    <div class="q-block">
+      <div class="q-text">${i+1}. ${q.q}</div>
+      <div class="q-options">
+        ${['A','B','C','D'].map((l,j) => q.opts[j] ? `
+          <label class="q-opt">
+            <input type="radio" name="q${i}" value="${l}"/>
+            <strong>${l}.</strong> ${q.opts[j]}
+          </label>
+        ` : '').join('')}
+      </div>
+    </div>
+  `).join('');
+  showExamView('take');
+}
+
+function submitExam(){
+  const name = prompt('Enter your name:','');
+  if(!name) return;
+  const qs = parseQuestions(currentExam.questions);
+  let correct = 0;
+  qs.forEach((q,i) => {
+    const sel = document.querySelector(`input[name="q${i}"]:checked`);
+    if(sel && sel.value === q.ans) correct++;
+  });
+  const score = Math.round(correct / qs.length * 100);
+  const pass  = score >= (parseInt(currentExam.passScore)||80);
+  fbPush('training/results', {
+    name, outlet: currentExam.outlet, exam: currentExam.title,
+    score, pass, date: new Date().toLocaleDateString('en-GB')
+  });
+  alert(`${name}, you scored ${score}% — ${pass ? '✅ PASSED' : '❌ FAILED'}`);
+  showExamView('list');
+  toast(`Result saved: ${score}%`, pass ? 'success' : 'error');
+}
+
+async function saveExam(){
+  const title    = document.getElementById('ex-title').value.trim();
+  const outlet   = document.getElementById('ex-outlet').value;
+  const passScore= document.getElementById('ex-pass').value;
+  const timeLimit= document.getElementById('ex-time').value;
+  const questions= document.getElementById('ex-questions').value.trim();
+  if(!title){ toast('Title required','error'); return; }
+  await fbPush('training/exams', { title, outlet, passScore, timeLimit, questions, createdAt: new Date().toLocaleDateString('en-GB') });
+  closeModal('exam-modal');
+  toast('Exam created!','success');
+}
+
+function deleteExam(k){
+  if(!confirm('Delete this exam?')) return;
+  fbRemove('training/exams/'+k);
+}
+
+function renderResults(){
+  const outlet = document.getElementById('res-outlet-filter').value;
+  const tbody  = document.getElementById('results-tbody');
+  const items  = Object.entries(allResults).filter(([k,v]) =>
+    outlet==='all' || v.outlet===outlet
+  ).reverse();
+  if(!items.length){ tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);text-align:center">No results yet.</td></tr>'; return; }
+  tbody.innerHTML = items.map(([k,v]) => `
+    <tr>
+      <td>${v.name||'—'}</td>
+      <td>${v.outlet||'—'}</td>
+      <td>${v.exam||'—'}</td>
+      <td><strong style="color:${v.score>=80?'var(--success)':'var(--danger)'}">${v.score}%</strong></td>
+      <td>${v.date||'—'}</td>
+      <td><span class="badge ${v.pass?'badge-green':'badge-red'}">${v.pass?'PASS':'FAIL'}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ===========================
+// ===== NEW JOINERS =========
+// ===========================
+let allJoiners = {};
+
+function renderJoiners(){
+  const tbody = document.getElementById('nj-tbody');
+  const items = Object.entries(allJoiners);
+  if(!items.length){ tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);text-align:center">No new joiners added.</td></tr>'; return; }
+  tbody.innerHTML = items.map(([k,v]) => {
+    const progress = v.progress || 0;
+    return `
+    <tr>
+      <td><strong>${v.name||'—'}</strong><div style="font-size:11px;color:var(--muted)">${v.trainer||''}</div></td>
+      <td>${v.role||'—'}</td>
+      <td><span class="badge badge-gold">${v.outlet||'—'}</span></td>
+      <td>${v.start||'—'}</td>
+      <td style="width:140px">
+        <div class="progress-bar" style="margin-bottom:2px"><div class="progress-fill" style="width:${progress}%"></div></div>
+        <div style="font-size:10px;color:var(--muted)">${progress}%</div>
+      </td>
+      <td><button class="btn btn-sm btn-outline" onclick="updateProgress('${k}',${progress})">Update</button>
+          <button class="btn btn-sm" style="background:none;border:none;color:var(--muted);cursor:pointer" onclick="deleteJoiner('${k}')">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveNewJoiner(){
+  const name    = document.getElementById('nj-name').value.trim();
+  const role    = document.getElementById('nj-role').value.trim();
+  const outlet  = document.getElementById('nj-outlet').value;
+  const start   = document.getElementById('nj-start').value;
+  const trainer = document.getElementById('nj-trainer').value.trim();
+  if(!name){ toast('Name required','error'); return; }
+  await fbPush('training/joiners', { name, role, outlet, start, trainer, progress: 0, createdAt: new Date().toLocaleDateString('en-GB') });
+  closeModal('nj-modal');
+  toast('New joiner added!','success');
+}
+
+function updateProgress(k, cur){
+  const p = parseInt(prompt('Enter progress % (0–100):', cur));
+  if(isNaN(p)) return;
+  window._update(fbRef('training/joiners/'+k), { progress: Math.max(0,Math.min(100,p)) });
+  toast('Progress updated','success');
+}
+
+function deleteJoiner(k){
+  if(!confirm('Remove this new joiner?')) return;
+  fbRemove('training/joiners/'+k);
+}
+
+// ===========================
+// ===== OBSERVATIONS ========
+// ===========================
+let allObs = {};
+let obsChart = null;
+
+function renderObs(){
+  const outlet = document.getElementById('obs-outlet').value;
+  const items  = Object.entries(allObs).filter(([k,v]) =>
+    outlet==='all' || v.outlet===outlet
+  );
+  const container = document.getElementById('obs-rows');
+  if(!items.length){
+    container.innerHTML = '<div class="obs-row"><div class="obs-cell" style="grid-column:1/-1;color:var(--muted)">No observations this period.</div></div>';
+    return;
+  }
+  container.innerHTML = items.map(([k,v]) => {
+    const avg = ((+v.s1 + +v.s2 + +v.s3 + +v.s4)/4).toFixed(1);
+    const color = avg>=4?'var(--success)':avg>=3?'var(--gold)':'var(--danger)';
+    return `
+    <div class="obs-row">
+      <div class="obs-cell name-col">${v.name||'—'}<div style="font-size:10px;color:var(--muted)">${v.outlet||''}</div></div>
+      <div class="obs-cell">${scoreBlock(v.s1)}</div>
+      <div class="obs-cell">${scoreBlock(v.s2)}</div>
+      <div class="obs-cell">${scoreBlock(v.s3)}</div>
+      <div class="obs-cell">${scoreBlock(v.s4)}</div>
+      <div class="obs-cell"><strong style="color:${color}">${avg}</strong></div>
+    </div>`;
+  }).join('');
+}
+
+function scoreBlock(s){
+  const n = parseInt(s)||0;
+  const c = n>=4?'var(--success)':n>=3?'var(--gold)':'var(--danger)';
+  return `<span style="font-weight:700;color:${c}">${n}/5</span>`;
+}
+
+async function saveObs(){
+  const name   = document.getElementById('ob-name').value.trim();
+  const outlet = document.getElementById('ob-outlet').value;
+  const week   = document.getElementById('ob-week').value;
+  const s1     = document.getElementById('ob-s1').value;
+  const s2     = document.getElementById('ob-s2').value;
+  const s3     = document.getElementById('ob-s3').value;
+  const s4     = document.getElementById('ob-s4').value;
+  const notes  = document.getElementById('ob-notes').value;
+  if(!name){ toast('Name required','error'); return; }
+  await fbPush('training/observations', { name, outlet, week, s1, s2, s3, s4, notes, createdAt: new Date().toLocaleDateString('en-GB') });
+  closeModal('obs-modal');
+  toast('Observation saved!','success');
+}
+
+function exportObs(){
+  const items = Object.values(allObs);
+  if(!items.length){ toast('No data to export','error'); return; }
+  const rows = [['Name','Outlet','Week','Product Knowledge','Guest Interaction','Grooming','SOP Adherence','Avg','Notes']];
+  items.forEach(v => {
+    const avg = ((+v.s1+(+v.s2)+(+v.s3)+(+v.s4))/4).toFixed(2);
+    rows.push([v.name,v.outlet,v.week,v.s1,v.s2,v.s3,v.s4,avg,v.notes||'']);
+  });
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const a   = document.createElement('a');
+  a.href    = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'weekly_observations.csv';
+  a.click();
+  toast('CSV exported','success');
+}
+
+function buildObsChart(){
+  const ctx = document.getElementById('obs-chart').getContext('2d');
+  const labels = ['Week 1','Week 2','Week 3','Week 4','Week 5','Week 6'];
+  const data   = labels.map(()=> +(Math.random()*1.5+3).toFixed(1));
+  if(obsChart) obsChart.destroy();
+  obsChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{ label:'Avg Score', data, borderColor:'#c9a84c', backgroundColor:'rgba(201,168,76,.1)', tension:.4, fill:true, pointBackgroundColor:'#c9a84c' }] },
+    options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ min:1, max:5, ticks:{color:'#888'}, grid:{color:'#222'} }, x:{ ticks:{color:'#888'}, grid:{color:'#222'} } } }
+  });
+}
+
+// ===========================
+// ===== AI ASSISTANT ========
+// ===========================
+let aiOutlet = 'General';
+let recognition = null;
+let isListening = false;
+
+function setAIOutlet(el, outlet){
+  document.querySelectorAll('#ai-outlet-chips .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  aiOutlet = outlet;
+  document.getElementById('ai-outlet-label').textContent = 'Outlet: ' + outlet;
+}
+
+function askSuggested(btn){ document.getElementById('ai-input').value = btn.textContent; sendAI(); }
+
+async function sendAI(){
+  const inp = document.getElementById('ai-input');
+  const q   = inp.value.trim();
+  if(!q) return;
+  inp.value = '';
+  appendMsg('user', q);
+  const typing = appendMsg('bot', '…');
+
+  try {
+    const systemPrompt = `You are a hotel training assistant for Culex Hospitality Group. 
+You help staff learn SOPs, menus, service steps, and brand standards.
+Current outlet context: ${aiOutlet}.
+Be concise, practical, and supportive. Use bullet points where helpful.
+If asked about specific menus or SOPs for the outlet, provide example best-practice content if no real data is provided.
+Always end responses with a follow-up question or tip to reinforce learning.`;
+
+    const res  = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        system: systemPrompt,
+        messages:[{ role:'user', content:q }]
+      })
+    });
+    const data = await res.json();
+    const text = (data.content||[]).map(b => b.text||'').join('');
+    typing.textContent = text || 'Sorry, I could not get a response. Please try again.';
+  } catch(e) {
+    typing.textContent = '⚠️ Connection error. Please check your network and try again.';
+  }
+
+  const msgs = document.getElementById('ai-messages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function appendMsg(role, text){
+  const msgs = document.getElementById('ai-messages');
+  const div  = document.createElement('div');
+  div.className = 'ai-msg ' + role;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function toggleVoice(){
+  if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
+    toast('Voice not supported in this browser','error'); return;
+  }
+  if(isListening){ recognition.stop(); return; }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('mic-btn').classList.add('listening');
+    document.getElementById('voice-status').textContent = '🎤 Listening…';
+  };
+  recognition.onresult = e => {
+    document.getElementById('ai-input').value = e.results[0][0].transcript;
+    sendAI();
+  };
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('mic-btn').classList.remove('listening');
+    document.getElementById('voice-status').textContent = 'Voice input: ready';
+  };
+  recognition.onerror = e => {
+    isListening = false;
+    document.getElementById('mic-btn').classList.remove('listening');
+    document.getElementById('voice-status').textContent = 'Error: ' + e.error;
+  };
+  recognition.start();
+}
+
+// ===========================
+// ===== OVERVIEW STATS ======
+// ===========================
+function updateOverview(){
+  const trainedCount = Object.keys(allJoiners).length;
+  const resultList   = Object.values(allResults);
+  const passed       = resultList.filter(r => r.pass).length;
+  const avg          = resultList.length ? Math.round(resultList.reduce((s,r)=>s+(+r.score),0)/resultList.length) : '—';
+
+  document.getElementById('ov-trained').textContent  = trainedCount;
+  document.getElementById('ov-passed').textContent   = passed;
+  document.getElementById('ov-avg').textContent      = avg !== '—' ? avg+'%' : '—';
+  document.getElementById('ov-joiners').textContent  = Object.values(allJoiners).filter(j=>(j.progress||0)<100).length;
+
+  // Recent exam results
+  const exTbody = document.getElementById('ov-exam-tbody');
+  const recRes  = resultList.slice(-5).reverse();
+  exTbody.innerHTML = recRes.length ?
+    recRes.map(r=>`<tr><td>${r.name||'—'}</td><td>${r.outlet||'—'}</td><td>${r.exam||'—'}</td>
+      <td><strong style="color:${r.score>=80?'var(--success)':'var(--danger)'}">${r.score}%</strong></td>
+      <td><span class="badge ${r.pass?'badge-green':'badge-red'}">${r.pass?'PASS':'FAIL'}</span></td></tr>`).join('')
+    : '<tr><td colspan="5" style="color:var(--muted);text-align:center">No exam results yet.</td></tr>';
+
+  // Obs highlights
+  const obsList = Object.values(allObs);
+  const obsTbody = document.getElementById('ov-obs-tbody');
+  obsTbody.innerHTML = obsList.length ?
+    obsList.slice(-5).reverse().map(o => {
+      const avg2 = ((+o.s1+(+o.s2)+(+o.s3)+(+o.s4))/4).toFixed(1);
+      return `<tr><td>${o.name}</td><td>${o.outlet}</td>
+        <td><strong style="color:${avg2>=4?'var(--success)':avg2>=3?'var(--gold)':'var(--danger)'}">${avg2}/5</strong></td>
+        <td>${avg2>=4?'↑':avg2>=3?'↔':'↓'}</td></tr>`;
+    }).join('')
+    : '<tr><td colspan="4" style="color:var(--muted);text-align:center">No observations yet.</td></tr>';
+}
+
+// ===========================
+// ===== FIREBASE INIT =======
+// ===========================
+function initFirebase(){
+  fbListen('training/cheatsheets', d => { allCS = d; renderCS(); });
+  fbListen('training/manuals',     d => { allManuals = d; renderManuals(); });
+  fbListen('training/exams',       d => { allExams = d; renderExamCards(); });
+  fbListen('training/results',     d => { allResults = d; renderResults(); updateOverview(); });
+  fbListen('training/joiners',     d => { allJoiners = d; renderJoiners(); updateOverview(); });
+  fbListen('training/observations',d => { allObs = d; renderObs(); updateOverview(); });
+  buildObsChart();
+  // Set default dates
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('obs-week').value = today;
+  document.getElementById('ob-week').value  = today;
+  document.getElementById('nj-start').value = today;
+}
+
+if(window._firebaseReady){
+  initFirebase();
+} else {
+  document.addEventListener('firebaseReady', initFirebase);
+}
+</script>
+</body>
+</html>
