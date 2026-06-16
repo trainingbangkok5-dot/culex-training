@@ -1786,7 +1786,18 @@ function sunnySearch(rawQuery){
   const candidates = Object.values(allCS).filter(cs => {
     if(outlet !== 'all' && cs.outlet !== outlet) return false;
     const haystack = ((cs.title||'') + ' ' + (cs.content||'') + ' ' + (cs.sheetType||'')).toLowerCase();
-    return clean.split(/\s+/).every(word => word.length < 2 || haystack.includes(word));
+    const words = clean.split(/\s+/).filter(w => w.length > 1);
+    // Match if ANY meaningful word appears, weighted by how many match
+    const matchCount = words.filter(word => haystack.includes(word)).length;
+    return matchCount > 0;
+  }).sort((a, b) => {
+    // Sort by most words matched
+    const hayA = ((a.title||'') + ' ' + (a.content||'')).toLowerCase();
+    const hayB = ((b.title||'') + ' ' + (b.content||'')).toLowerCase();
+    const words = clean.split(/\s+/).filter(w => w.length > 1);
+    const matchA = words.filter(w => hayA.includes(w)).length;
+    const matchB = words.filter(w => hayB.includes(w)).length;
+    return matchB - matchA;
   });
 
   // Also search individual menu items inside cheat sheet content
