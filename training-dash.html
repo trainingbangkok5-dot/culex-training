@@ -13,7 +13,7 @@
   import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   const firebaseConfig = {
-    databaseURL: "https://kitchen-tracker-35293-default-rtdb.firebaseio.com"
+    databaseURL: "https://culex-training-default-rtdb.asia-southeast1.firebasedatabase.app"
   };
   const app = initializeApp(firebaseConfig);
   window._db  = getDatabase(app);
@@ -1201,8 +1201,8 @@ function fbRemove(path){ return window._remove(fbRef(path)); }
 async function cloudinaryUpload(file){
   const fd = new FormData();
   fd.append('file', file);
-  fd.append('upload_preset', 'culex_uploads');
-  const r = await fetch('https://api.cloudinary.com/v1_1/db94rgiil/auto/upload', { method:'POST', body:fd });
+  fd.append('upload_preset', 'culex_training');
+  const r = await fetch('https://api.cloudinary.com/v1_1/dtnj1zpc4/auto/upload', { method:'POST', body:fd });
   const d = await r.json();
   return d.secure_url || null;
 }
